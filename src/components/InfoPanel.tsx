@@ -27,9 +27,20 @@ export function InfoPanel({ status, profile, profileLoading, vouchCounts }: Info
         pointerEvents: 'auto',
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>vouchgraph</div>
+      <div style={{ fontWeight: 700, fontSize: 18 }}>vouchgraph</div>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+        by{' '}
+        <a
+          href="https://bsky.app/profile/philpax.me"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#818cf8', textDecoration: 'none' }}
+        >
+          philpax.me
+        </a>
+      </div>
       <div>
-        This is a live graph of all vouches on{' '}
+        A live graph of all vouches on{' '}
         <a
           href="https://atvouch.dev"
           target="_blank"
@@ -38,8 +49,8 @@ export function InfoPanel({ status, profile, profileLoading, vouchCounts }: Info
         >
           atvouch.dev
         </a>
-        . This may be taken down at any time: it is purely clientside with no caching, and is thus
-        very inefficient.
+        . Proof of concept - every page load queries the relay and each PDS
+        to do a full backfill with no caching, so please be gentle.
       </div>
       <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
         {status.nodeCount} nodes · {status.edgeCount} edges
