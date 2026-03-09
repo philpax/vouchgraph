@@ -104,8 +104,9 @@ export default function App() {
     const baseStyle = labelStyleByIndex.get(pointIndex) ?? 'background: rgba(3,7,18,0.8); color: white; padding: 2px 6px; border-radius: 4px;';
     if (!hl) return baseStyle;
     const dist = hl.distances.get(pointIndex);
-    if (dist === undefined) return baseStyle + ' opacity: 0.05;';
-    const alpha = Math.max(0.2, Math.pow(0.8, dist));
+    if (dist === undefined) return baseStyle + ' opacity: 0.2; filter: brightness(0.4);';
+    if (dist <= 1) return baseStyle;
+    const alpha = Math.pow(0.25, dist - 1);
     return baseStyle + ` opacity: ${alpha};`;
   }, [labelStyleByIndex, hl]);
 
@@ -125,15 +126,18 @@ export default function App() {
     if (!hl || index === undefined) return colorHex;
     const dist = hl.distances.get(index);
     if (dist === undefined) {
-      return hexToRgba(colorHex, 0.05, 0.15);
+      // Non-highlighted: heavily dimmed
+      return hexToRgba(colorHex, 0.06, 0.3);
     }
-    const alpha = Math.max(0.2, Math.pow(0.8, dist));
+    if (dist <= 1) return colorHex;
+    // Aggressive falloff: 0.25^(dist-1) — dist 2 = 0.25, dist 3 = 0.0625
+    const alpha = Math.pow(0.25, dist - 1);
     return hexToRgba(colorHex, alpha, 1.0);
   }, [hl]);
 
   // Link color: use cluster color from the color column, dim on click highlight
   const linkColorByFn = useCallback((colorHex: string, index?: number): string => {
-    // Default: show link in its cluster color
+    // Default: show link in its cluster color at moderate opacity
     const baseColor = hexToRgba(colorHex, 0.7, 0.9);
     if (!hl || index === undefined) return baseColor;
 
@@ -143,13 +147,16 @@ export default function App() {
     const srcDist = hl.distances.get(srcIdx);
     const tgtDist = hl.distances.get(tgtIdx);
 
-    // Click: fade link based on the farther endpoint's distance
+    // Not connected to highlighted component
     if (srcDist === undefined || tgtDist === undefined) {
       return hexToRgba(colorHex, 0.03, 0.15);
     }
+    // Link at distance = max of its two endpoints
     const maxDist = Math.max(srcDist, tgtDist);
-    const alpha = Math.max(0.05, 0.4 * Math.pow(0.8, maxDist));
-    return hexToRgba(colorHex, alpha, 0.8);
+    if (maxDist <= 1) return hexToRgba(colorHex, 0.4, 0.9);
+    // Aggressive falloff matching nodes: 0.4 * 0.25^(dist-1)
+    const alpha = 0.4 * Math.pow(0.25, maxDist - 1);
+    return hexToRgba(colorHex, alpha, 0.9);
   }, [hl, linkEndpoints]);
 
   // Prepare initial data once when backfill completes
