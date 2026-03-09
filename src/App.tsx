@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useVouchGraph } from "./hooks/useVouchGraph";
 import { useGraphHighlight } from "./hooks/useGraphHighlight";
 import { useSelectedProfile } from "./hooks/useSelectedProfile";
@@ -18,6 +18,9 @@ const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has(
 export default function App() {
   const [params, setParams] = useState<SimParams>(DEFAULT_SIM_PARAMS);
   const reheatRef = useRef<(() => void) | null>(null);
+  const focusPointRef = useRef<((index: number | undefined) => void) | null>(
+    null,
+  );
 
   const { nodes, links, status, onIncremental } = useVouchGraph(
     params.nodeSizeMin,
@@ -29,7 +32,7 @@ export default function App() {
     highlight,
     highlightNode,
     clearHighlight,
-    vouchCounts,
+    vouchDetails,
     pointLabelClassName,
     showLabelsFor,
     pointColorByFn,
@@ -42,19 +45,35 @@ export default function App() {
     clearProfile,
   } = useSelectedProfile();
 
-  const handlePointClick = useCallback(
+  const nodeIdToIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    nodes.forEach((n, i) => map.set(n.id, i));
+    return map;
+  }, [nodes]);
+
+  const selectNode = useCallback(
     (index: number) => {
       highlightNode(index);
+      focusPointRef.current?.(index);
       const node = nodes[index];
       if (node) fetchProfile(node.id);
     },
     [highlightNode, nodes, fetchProfile],
   );
 
+  const handleSelectDid = useCallback(
+    (did: string) => {
+      const index = nodeIdToIndex.get(did);
+      if (index !== undefined) selectNode(index);
+    },
+    [nodeIdToIndex, selectNode],
+  );
+
   const handleBackgroundClick = useCallback(() => {
     if (!highlight) return;
     clearHighlight();
     clearProfile();
+    focusPointRef.current?.(undefined);
   }, [highlight, clearHighlight, clearProfile]);
 
   const handleReheat = useCallback(() => {
@@ -72,7 +91,8 @@ export default function App() {
         showLabelsFor={showLabelsFor}
         pointLabelClassName={pointLabelClassName}
         pointColorByFn={pointColorByFn}
-        onPointClick={handlePointClick}
+        onPointClick={selectNode}
+        onFocusPointRef={focusPointRef}
         onBackgroundClick={handleBackgroundClick}
         onReheatRef={reheatRef}
       />
@@ -81,7 +101,8 @@ export default function App() {
         status={status}
         profile={profile}
         profileLoading={profileLoading}
-        vouchCounts={vouchCounts}
+        vouchDetails={vouchDetails}
+        onSelectDid={handleSelectDid}
       />
 
       {SHOW_DEBUG_CONTROLS && !status.loading && (

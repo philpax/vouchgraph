@@ -16,9 +16,12 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     return map;
   }, [nodes]);
 
-  const { outboundAdj, vouchCounts } = useMemo(() => {
+  const { outboundAdj, vouchDetails } = useMemo(() => {
     const adj = new Map<number, number[]>();
-    const counts = new Map<string, { inbound: number; outbound: number }>();
+    const details = new Map<
+      string,
+      { inbound: string[]; outbound: string[] }
+    >();
     for (const l of links) {
       const srcIdx = nodeIdToIndex.get(l.source) ?? -1;
       const tgtIdx = nodeIdToIndex.get(l.target) ?? -1;
@@ -26,14 +29,14 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
       const list = adj.get(srcIdx);
       if (list) list.push(tgtIdx);
       else adj.set(srcIdx, [tgtIdx]);
-      const src = counts.get(l.source) ?? { inbound: 0, outbound: 0 };
-      src.outbound++;
-      counts.set(l.source, src);
-      const tgt = counts.get(l.target) ?? { inbound: 0, outbound: 0 };
-      tgt.inbound++;
-      counts.set(l.target, tgt);
+      const src = details.get(l.source) ?? { inbound: [], outbound: [] };
+      src.outbound.push(l.target);
+      details.set(l.source, src);
+      const tgt = details.get(l.target) ?? { inbound: [], outbound: [] };
+      tgt.inbound.push(l.source);
+      details.set(l.target, tgt);
     }
-    return { outboundAdj: adj, vouchCounts: counts };
+    return { outboundAdj: adj, vouchDetails: details };
   }, [links, nodeIdToIndex]);
 
   const highlightNode = useCallback(
@@ -116,7 +119,7 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     highlight,
     highlightNode,
     clearHighlight,
-    vouchCounts,
+    vouchDetails,
     pointLabelClassName,
     showLabelsFor,
     pointColorByFn,

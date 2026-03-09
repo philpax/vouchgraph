@@ -41,6 +41,9 @@ interface VouchGraphProps {
   onPointClick: (index: number) => void;
   onBackgroundClick: () => void;
   onReheatRef?: React.MutableRefObject<(() => void) | null>;
+  onFocusPointRef?: React.MutableRefObject<
+    ((index: number | undefined) => void) | null
+  >;
 }
 
 export function VouchGraph({
@@ -55,6 +58,7 @@ export function VouchGraph({
   onPointClick,
   onBackgroundClick,
   onReheatRef,
+  onFocusPointRef,
 }: VouchGraphProps) {
   const cosmographRef = useRef<CosmographRef>(undefined);
   const [cosmographConfig, setCosmographConfig] =
@@ -66,6 +70,14 @@ export function VouchGraph({
       onReheatRef.current = () => cosmographRef.current?.start();
     }
   }, [onReheatRef]);
+
+  // Expose focus point to parent
+  useEffect(() => {
+    if (onFocusPointRef) {
+      onFocusPointRef.current = (index) =>
+        cosmographRef.current?.setFocusedPoint(index);
+    }
+  }, [onFocusPointRef]);
 
   // Prepare initial data once when backfill completes
   useEffect(() => {
@@ -123,14 +135,12 @@ export function VouchGraph({
 
   const handlePointClick = useCallback(
     (index: number) => {
-      cosmographRef.current?.setFocusedPoint(index);
       onPointClick(index);
     },
     [onPointClick],
   );
 
   const handleBackgroundClick = useCallback(() => {
-    cosmographRef.current?.setFocusedPoint(undefined);
     onBackgroundClick();
   }, [onBackgroundClick]);
 

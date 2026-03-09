@@ -1,18 +1,22 @@
+import { useState } from "react";
 import type { AppBskyActorDefs } from "@atcute/bluesky/lexicons";
 import type { VouchGraphStatus } from "../hooks/useVouchGraph";
+import { getHandle } from "../lib/handle-resolver";
 
 interface InfoPanelProps {
   status: VouchGraphStatus;
   profile: AppBskyActorDefs.ProfileViewDetailed | null;
   profileLoading: boolean;
-  vouchCounts: Map<string, { inbound: number; outbound: number }>;
+  vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
+  onSelectDid: (did: string) => void;
 }
 
 export function InfoPanel({
   status,
   profile,
   profileLoading,
-  vouchCounts,
+  vouchDetails,
+  onSelectDid,
 }: InfoPanelProps) {
   return (
     <div className="absolute top-4 right-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto">
@@ -54,7 +58,11 @@ export function InfoPanel({
             <div className="text-xs text-white/50">Loading profile...</div>
           )}
           {profile && (
-            <ProfileCard profile={profile} vouchCounts={vouchCounts} />
+            <ProfileCard
+              profile={profile}
+              vouchDetails={vouchDetails}
+              onSelectDid={onSelectDid}
+            />
           )}
         </div>
       )}
@@ -62,14 +70,22 @@ export function InfoPanel({
   );
 }
 
+type VouchTab = "inbound" | "outbound";
+
 function ProfileCard({
   profile,
-  vouchCounts,
+  vouchDetails,
+  onSelectDid,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed;
-  vouchCounts: Map<string, { inbound: number; outbound: number }>;
+  vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
+  onSelectDid: (did: string) => void;
 }) {
-  const vc = vouchCounts.get(profile.did);
+  const [activeTab, setActiveTab] = useState<VouchTab>("inbound");
+  const vd = vouchDetails.get(profile.did);
+  const inbound = vd?.inbound ?? [];
+  const outbound = vd?.outbound ?? [];
+
   return (
     <div>
       <div className="flex gap-2.5 items-center mb-2">
@@ -101,13 +117,7 @@ function ProfileCard({
           {profile.description}
         </div>
       )}
-      {vc && (
-        <div className="flex gap-3 text-[11px] text-white/50">
-          <span>{vc.outbound} vouched for</span>
-          <span>{vc.inbound} vouched by</span>
-        </div>
-      )}
-      <div className="flex gap-3 text-[11px] text-white/50 mt-1">
+      <div className="flex gap-3 text-[11px] text-white/50">
         {profile.followersCount != null && (
           <span>{profile.followersCount} followers</span>
         )}
@@ -116,6 +126,54 @@ function ProfileCard({
         )}
         {profile.postsCount != null && <span>{profile.postsCount} posts</span>}
       </div>
+      <div className="flex text-[11px] mt-2 border-b border-white/10">
+        <button
+          onClick={() => setActiveTab("inbound")}
+          className={`flex-1 py-1 cursor-pointer transition-colors ${
+            activeTab === "inbound"
+              ? "text-white border-b border-white"
+              : "text-white/50 hover:text-white/70"
+          }`}
+        >
+          Vouched for by {inbound.length}
+        </button>
+        <button
+          onClick={() => setActiveTab("outbound")}
+          className={`flex-1 py-1 cursor-pointer transition-colors ${
+            activeTab === "outbound"
+              ? "text-white border-b border-white"
+              : "text-white/50 hover:text-white/70"
+          }`}
+        >
+          Vouching {outbound.length}
+        </button>
+      </div>
+      <DidList
+        dids={activeTab === "inbound" ? inbound : outbound}
+        onSelect={onSelectDid}
+      />
+    </div>
+  );
+}
+
+function DidList({
+  dids,
+  onSelect,
+}: {
+  dids: string[];
+  onSelect: (did: string) => void;
+}) {
+  return (
+    <div className="mt-1 max-h-40 overflow-y-auto text-xs">
+      {dids.map((did) => (
+        <button
+          key={did}
+          onClick={() => onSelect(did)}
+          className="block w-full text-left px-2 py-0.5 text-indigo-400 hover:bg-white/10 rounded cursor-pointer truncate"
+        >
+          @{getHandle(did) ?? did}
+        </button>
+      ))}
     </div>
   );
 }
