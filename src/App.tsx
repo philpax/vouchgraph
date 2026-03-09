@@ -9,7 +9,7 @@ import {
 import { useVouchGraph } from './hooks/useVouchGraph';
 
 // Toggle this to show/hide the debug tuning panel
-const SHOW_DEBUG_CONTROLS = true;
+const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has('debugControls');
 
 function hexToRgba(hex: string, alpha: number, darken: number): string {
   const r = Math.round(parseInt(hex.slice(1, 3), 16) * darken);
