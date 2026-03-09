@@ -269,8 +269,11 @@ export function useVouchGraph(
 
         if (abortController.signal.aborted) return;
 
+        // Filter out self-vouches
+        const filteredEdges = allEdges.filter((e) => e.from !== e.to);
+
         const allDids = new Set<string>();
-        for (const edge of allEdges) {
+        for (const edge of filteredEdges) {
           allDids.add(edge.from);
           allDids.add(edge.to);
         }
@@ -280,13 +283,13 @@ export function useVouchGraph(
         if (abortController.signal.aborted) return;
 
         // Track all known nodes/edges
-        for (const edge of allEdges) {
+        for (const edge of filteredEdges) {
           nodeSetRef.current.add(edge.from);
           nodeSetRef.current.add(edge.to);
           linkSetRef.current.add(`${edge.from}->${edge.to}`);
         }
 
-        const linkList = allEdges.map((e) => ({
+        const linkList = filteredEdges.map((e) => ({
           source: e.from,
           target: e.to,
         }));
@@ -322,6 +325,7 @@ export function useVouchGraph(
         // Start Jetstream for live updates
         subscriptionRef.current = createJetstreamSubscription({
           onCreate: (edge: VouchEdge) => {
+            if (edge.from === edge.to) return;
             const key = `${edge.from}->${edge.to}`;
             if (linkSetRef.current.has(key)) return;
             linkSetRef.current.add(key);
