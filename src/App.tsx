@@ -48,7 +48,7 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#030712' }}>
+    <div className="w-screen h-screen relative bg-gray-950">
       <VouchGraph
         nodes={nodes}
         links={links}

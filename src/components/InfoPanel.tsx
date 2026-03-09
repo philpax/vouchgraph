@@ -10,31 +10,15 @@ interface InfoPanelProps {
 
 export function InfoPanel({ status, profile, profileLoading, vouchCounts }: InfoPanelProps) {
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        background: 'rgba(3, 7, 18, 0.85)',
-        borderRadius: 12,
-        padding: '16px 20px',
-        maxWidth: 320,
-        color: 'rgba(255,255,255,0.85)',
-        fontSize: 14,
-        lineHeight: 1.5,
-        backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        pointerEvents: 'auto',
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: 18 }}>vouchgraph</div>
-      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+    <div className="absolute top-4 right-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto">
+      <div className="font-bold text-lg">vouchgraph</div>
+      <div className="text-xs text-white/50 mb-2">
         by{' '}
         <a
           href="https://bsky.app/profile/philpax.me"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#818cf8', textDecoration: 'none' }}
+          className="text-indigo-400 no-underline"
         >
           philpax.me
         </a>
@@ -45,24 +29,24 @@ export function InfoPanel({ status, profile, profileLoading, vouchCounts }: Info
           href="https://atvouch.dev"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#818cf8', textDecoration: 'underline' }}
+          className="text-indigo-400 underline"
         >
           atvouch.dev
         </a>
         . Proof of concept - every page load queries the relay and each PDS
         to do a full backfill with no caching, so please be gentle.
       </div>
-      <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+      <div className="mt-2 text-xs text-white/50">
         {status.nodeCount} nodes · {status.edgeCount} edges
       </div>
       {status.error && (
-        <div style={{ marginTop: 8, color: '#f87171', fontSize: 12 }}>{status.error}</div>
+        <div className="mt-2 text-red-400 text-xs">{status.error}</div>
       )}
 
       {(profile || profileLoading) && (
-        <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 12 }}>
+        <div className="mt-3 border-t border-white/10 pt-3">
           {profileLoading && !profile && (
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Loading profile...</div>
+            <div className="text-xs text-white/50">Loading profile...</div>
           )}
           {profile && <ProfileCard profile={profile} vouchCounts={vouchCounts} />}
         </div>
@@ -81,17 +65,17 @@ function ProfileCard({
   const vc = vouchCounts.get(profile.did);
   return (
     <div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+      <div className="flex gap-2.5 items-center mb-2">
         {profile.avatar && (
           <img
             src={profile.avatar}
             alt=""
-            style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+            className="w-12 h-12 rounded-full object-cover shrink-0"
           />
         )}
-        <div style={{ minWidth: 0 }}>
+        <div className="min-w-0">
           {profile.displayName && (
-            <div style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="font-bold text-[15px] overflow-hidden text-ellipsis whitespace-nowrap">
               {profile.displayName}
             </div>
           )}
@@ -99,24 +83,24 @@ function ProfileCard({
             href={`https://bsky.app/profile/${profile.handle}`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#818cf8', fontSize: 12, textDecoration: 'none' }}
+            className="text-indigo-400 text-xs no-underline"
           >
             @{profile.handle}
           </a>
         </div>
       </div>
       {profile.description && (
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: 6 }}>
+        <div className="text-xs text-white/70 whitespace-pre-wrap break-words mb-1.5">
           {profile.description}
         </div>
       )}
       {vc && (
-        <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+        <div className="flex gap-3 text-[11px] text-white/50">
           <span>{vc.outbound} vouched for</span>
           <span>{vc.inbound} vouched by</span>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
+      <div className="flex gap-3 text-[11px] text-white/50 mt-1">
         {profile.followersCount != null && <span>{profile.followersCount} followers</span>}
         {profile.followsCount != null && <span>{profile.followsCount} following</span>}
         {profile.postsCount != null && <span>{profile.postsCount} posts</span>}

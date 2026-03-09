@@ -108,7 +108,7 @@ export function VouchGraph({
     <CosmographProvider>
       <Cosmograph
         ref={cosmographRef}
-        style={{ width: '100%', height: '100%' }}
+        className="w-full h-full"
         {...cosmographConfig}
         showHoveredPointLabel
         showDynamicLabels={!showLabelsFor}

@@ -36,25 +36,8 @@ export function DebugControls({ params, onParamsChange, onReheat }: DebugControl
   }, [params, onParamsChange]);
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        background: 'rgba(3, 7, 18, 0.92)',
-        borderRadius: 12,
-        padding: '12px 16px',
-        width: 300,
-        color: 'rgba(255,255,255,0.85)',
-        fontSize: 12,
-        lineHeight: 1.8,
-        backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        fontFamily: 'monospace',
-        pointerEvents: 'auto',
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Debug Controls</div>
+    <div className="absolute top-4 left-4 bg-gray-950/90 backdrop-blur rounded-xl px-4 py-3 w-[300px] text-white/85 text-xs leading-loose border border-white/10 font-mono pointer-events-auto">
+      <div className="font-bold text-sm mb-2">Debug Controls</div>
 
       <SliderControl label="gravity" value={params.simulationGravity} min={0} max={2} step={0.01}
         onChange={v => updateParam('simulationGravity', v)} />
@@ -69,7 +52,7 @@ export function DebugControls({ params, onParamsChange, onReheat }: DebugControl
       <SliderControl label="decay" value={params.simulationDecay} min={100} max={20000} step={100}
         onChange={v => updateParam('simulationDecay', v)} />
 
-      <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 8 }}>
+      <div className="mt-2 border-t border-white/10 pt-2">
         <SliderControl label="sizeMin" value={params.nodeSizeMin} min={1} max={20} step={0.5}
           onChange={v => updateParam('nodeSizeMin', v)} />
         <SliderControl label="sizeMax" value={params.nodeSizeMax} min={5} max={50} step={1}
@@ -78,34 +61,25 @@ export function DebugControls({ params, onParamsChange, onReheat }: DebugControl
           onChange={v => updateParam('nodeSizeScale', v)} />
       </div>
 
-      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+      <div className="mt-2 flex gap-2">
         <button
           onClick={onReheat}
-          style={{
-            flex: 1, padding: '6px 0', background: '#6366f1', color: 'white',
-            border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
-          }}
+          className="flex-1 py-1.5 bg-indigo-500 text-white border-none rounded-md cursor-pointer text-xs font-mono"
         >
           Reheat
         </button>
         <button
           onClick={() => onParamsChange(DEFAULT_SIM_PARAMS)}
-          style={{
-            flex: 1, padding: '6px 0', background: 'rgba(255,255,255,0.1)', color: 'white',
-            border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
-          }}
+          className="flex-1 py-1.5 bg-white/10 text-white border border-white/20 rounded-md cursor-pointer text-xs font-mono"
         >
           Reset
         </button>
       </div>
 
-      <div style={{ marginTop: 4, display: 'flex', gap: 8 }}>
+      <div className="mt-1 flex gap-2">
         <button
           onClick={() => navigator.clipboard.writeText(JSON.stringify(params, null, 2))}
-          style={{
-            flex: 1, padding: '6px 0', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)',
-            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: 'monospace',
-          }}
+          className="flex-1 py-1.5 bg-white/5 text-white/60 border border-white/10 rounded-md cursor-pointer text-[11px] font-mono"
         >
           Copy JSON
         </button>
@@ -123,14 +97,14 @@ function SliderControl({ label, value, min, max, step, onChange }: {
   onChange: (v: number) => void;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ width: 80, flexShrink: 0, color: 'rgba(255,255,255,0.6)' }}>{label}</span>
+    <div className="flex items-center gap-2">
+      <span className="w-20 shrink-0 text-white/60">{label}</span>
       <input
         type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
-        style={{ flex: 1, accentColor: '#6366f1' }}
+        className="flex-1 accent-indigo-500"
       />
-      <span style={{ width: 48, textAlign: 'right', flexShrink: 0 }}>{value}</span>
+      <span className="w-12 text-right shrink-0">{value}</span>
     </div>
   );
 }
