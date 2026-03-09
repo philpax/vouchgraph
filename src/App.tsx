@@ -90,11 +90,18 @@ export default function App() {
     return map;
   }, [nodes]);
 
-  const linkEndpoints = useMemo(() => {
-    return links.map(l => [
-      nodeIdToIndex.get(l.source) ?? -1,
-      nodeIdToIndex.get(l.target) ?? -1,
-    ] as [number, number]);
+  // Outbound adjacency: source index → list of target indices
+  const outboundAdj = useMemo(() => {
+    const adj = new Map<number, number[]>();
+    for (const l of links) {
+      const srcIdx = nodeIdToIndex.get(l.source) ?? -1;
+      const tgtIdx = nodeIdToIndex.get(l.target) ?? -1;
+      if (srcIdx === -1 || tgtIdx === -1) continue;
+      const list = adj.get(srcIdx);
+      if (list) list.push(tgtIdx);
+      else adj.set(srcIdx, [tgtIdx]);
+    }
+    return adj;
   }, [links, nodeIdToIndex]);
 
   // All highlight dimming goes through pointColorByFn — no selectPoints greyout.
@@ -134,30 +141,6 @@ export default function App() {
     const alpha = Math.pow(0.25, dist - 1);
     return hexToRgba(colorHex, alpha, 1.0);
   }, [hl]);
-
-  // Link color: use cluster color from the color column, dim on click highlight
-  const linkColorByFn = useCallback((colorHex: string, index?: number): string => {
-    // Default: show link in its cluster color at moderate opacity
-    const baseColor = hexToRgba(colorHex, 0.7, 0.9);
-    if (!hl || index === undefined) return baseColor;
-
-    const endpoints = linkEndpoints[index];
-    if (!endpoints) return baseColor;
-    const [srcIdx, tgtIdx] = endpoints;
-    const srcDist = hl.distances.get(srcIdx);
-    const tgtDist = hl.distances.get(tgtIdx);
-
-    // Not connected to highlighted component
-    if (srcDist === undefined || tgtDist === undefined) {
-      return hexToRgba(colorHex, 0.03, 0.15);
-    }
-    // Link at distance = max of its two endpoints
-    const maxDist = Math.max(srcDist, tgtDist);
-    if (maxDist <= 1) return hexToRgba(colorHex, 0.4, 0.9);
-    // Aggressive falloff matching nodes: 0.4 * 0.25^(dist-1)
-    const alpha = 0.4 * Math.pow(0.25, maxDist - 1);
-    return hexToRgba(colorHex, alpha, 0.9);
-  }, [hl, linkEndpoints]);
 
   // Prepare initial data once when backfill completes
   useEffect(() => {
@@ -213,15 +196,15 @@ export default function App() {
     const cosmo = cosmographRef.current;
     if (!cosmo) return;
 
-    // BFS to find the entire connected component with distances
+    // BFS following only outbound edges (vouches FROM the clicked node)
     const distances = new Map<number, number>();
     distances.set(index, 0);
     const queue = [index];
     while (queue.length > 0) {
       const current = queue.shift()!;
       const currentDist = distances.get(current)!;
-      const neighbors = cosmo.getConnectedPointIndices(current) ?? [];
-      for (const n of neighbors) {
+      const outbound = outboundAdj.get(current) ?? [];
+      for (const n of outbound) {
         if (!distances.has(n)) {
           distances.set(n, currentDist + 1);
           queue.push(n);
@@ -230,7 +213,7 @@ export default function App() {
     }
     setHighlight({ distances, center: index });
     cosmo.setFocusedPoint(index);
-  }, []);
+  }, [outboundAdj]);
 
   const handleBackgroundClick = useCallback(() => {
     if (!highlight) return;
@@ -253,14 +236,11 @@ export default function App() {
             pointLabelColor="rgba(255,255,255,0.9)"
             pointLabelClassName={pointLabelClassName}
             pointColorByFn={pointColorByFn}
-            pointColorStrategy={undefined}
             backgroundColor="#030712"
-            linkDefaultColor="rgba(255,255,255,0.15)"
+            linkDefaultColor="rgba(255,255,255,0.6)"
             linkDefaultWidth={6}
-            linkColorByFn={linkColorByFn}
-            linkColorStrategy={undefined}
             linkDefaultArrows
-            linkArrowsSizeScale={1.5}
+            linkArrowsSizeScale={3}
             fitViewOnInit
             fitViewDelay={1000}
             fitViewPadding={0.15}
