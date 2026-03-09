@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CosmographProvider,
   Cosmograph,
@@ -10,6 +10,13 @@ import { useVouchGraph } from './hooks/useVouchGraph';
 
 // Toggle this to show/hide the debug tuning panel
 const SHOW_DEBUG_CONTROLS = true;
+
+function hexToRgba(hex: string, alpha: number, darken: number): string {
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) * darken);
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) * darken);
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) * darken);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 const DATA_PREP_CONFIG = {
   points: {
@@ -60,6 +67,19 @@ export default function App() {
     params.nodeSizeMax,
     params.nodeSizeScale,
   );
+
+  // Build a map from point index to darkened background color for labels
+  const labelStyleByIndex = useMemo(() => {
+    const map = new Map<number, string>();
+    nodes.forEach((node, i) => {
+      map.set(i, `background: ${hexToRgba(node.color, 0.85, 0.35)}; color: white; padding: 2px 6px; border-radius: 4px;`);
+    });
+    return map;
+  }, [nodes]);
+
+  const pointLabelClassName = useCallback((_text: string, pointIndex: number) => {
+    return labelStyleByIndex.get(pointIndex) ?? 'background: rgba(3,7,18,0.8); color: white; padding: 2px 6px; border-radius: 4px;';
+  }, [labelStyleByIndex]);
 
   // Prepare initial data once when backfill completes
   useEffect(() => {
@@ -123,6 +143,7 @@ export default function App() {
             showDynamicLabels
             showTopLabels
             pointLabelColor="rgba(255,255,255,0.9)"
+            pointLabelClassName={pointLabelClassName}
             backgroundColor="#030712"
             linkDefaultColor="rgba(255,255,255,0.15)"
             linkDefaultArrows
