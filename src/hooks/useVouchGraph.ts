@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { VouchEdge } from "../lib/types";
 import { fetchAllVouches, type FetchProgress } from "../lib/vouch-fetcher";
 import { resolveHandles, getHandle } from "../lib/handle-resolver";
+import { hueFromName, pastelColorFromHue, circularMeanHue } from "../lib/color";
 import { createJetstreamSubscription } from "../lib/jetstream";
 import type { JetstreamSubscription } from "@atcute/jetstream";
 
@@ -45,28 +46,18 @@ export interface VouchGraphResult {
   onIncremental: (cb: (update: IncrementalUpdate) => void) => void;
 }
 
-const CLUSTER_COLORS = [
-  "#6366f1", // indigo
-  "#f43f5e", // rose
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#ef4444", // red
-  "#84cc16", // lime
-  "#06b6d4", // cyan
-  "#f97316", // orange
-];
-
 const HANDLE_RESOLVE_BATCH = 50;
 const HANDLE_RESOLVE_INTERVAL = 2000;
+
+interface ClusterInfo {
+  clusters: Map<string, number>;
+  clusterColors: Map<number, string>;
+}
 
 function computeClusters(
   nodeIds: Set<string>,
   links: { source: string; target: string }[],
-): Map<string, number> {
+): ClusterInfo {
   const parent = new Map<string, string>();
 
   function find(x: string): string {
@@ -105,13 +96,32 @@ function computeClusters(
     clusterMap.set(node, rootToCluster.get(find(node))!);
   }
 
-  return clusterMap;
+  // Collect per-member hues, then take the circular mean per cluster
+  const clusterHues = new Map<number, number[]>();
+  for (const node of nodeIds) {
+    const cid = clusterMap.get(node)!;
+    const name = getHandle(node) ?? node;
+    let hues = clusterHues.get(cid);
+    if (!hues) {
+      hues = [];
+      clusterHues.set(cid, hues);
+    }
+    hues.push(hueFromName(name));
+  }
+
+  const clusterColors = new Map<number, string>();
+  for (const [cid, hues] of clusterHues) {
+    clusterColors.set(cid, pastelColorFromHue(circularMeanHue(hues)));
+  }
+
+  return { clusters: clusterMap, clusterColors };
 }
 
 function makeNode(
   id: string,
   degree: number,
   clusterId: number,
+  color: string,
   nodeSizeMin: number,
   nodeSizeMax: number,
   nodeSizeScale: number,
@@ -122,7 +132,7 @@ function makeNode(
   return {
     id,
     label: handle ?? id,
-    color: CLUSTER_COLORS[clusterId % CLUSTER_COLORS.length],
+    color,
     size,
     cluster: clusterId,
   };
@@ -134,9 +144,11 @@ function buildNodesAndLinks(
   nodeSizeMin: number,
   nodeSizeMax: number,
   nodeSizeScale: number,
-): { nodes: VouchNode[]; links: VouchLink[] } {
-  const clusters = computeClusters(nodeSet, linkList);
-
+): {
+  nodes: VouchNode[];
+  links: VouchLink[];
+  clusterColors: Map<number, string>;
+} {
   const degree = new Map<string, number>();
   for (const id of nodeSet) degree.set(id, 0);
   for (const link of linkList) {
@@ -144,13 +156,17 @@ function buildNodesAndLinks(
     degree.set(link.target, (degree.get(link.target) ?? 0) + 1);
   }
 
+  const { clusters, clusterColors } = computeClusters(nodeSet, linkList);
+
   const nodes: VouchNode[] = [];
   for (const id of nodeSet) {
+    const cid = clusters.get(id) ?? 0;
     nodes.push(
       makeNode(
         id,
         degree.get(id) ?? 0,
-        clusters.get(id) ?? 0,
+        cid,
+        clusterColors.get(cid) ?? "#888888",
         nodeSizeMin,
         nodeSizeMax,
         nodeSizeScale,
@@ -161,10 +177,10 @@ function buildNodesAndLinks(
   // Color each link by its source node's cluster color
   const links: VouchLink[] = linkList.map((l) => {
     const srcCluster = clusters.get(l.source) ?? 0;
-    const color = CLUSTER_COLORS[srcCluster % CLUSTER_COLORS.length];
+    const color = clusterColors.get(srcCluster) ?? "#888888";
     return { source: l.source, target: l.target, color };
   });
-  return { nodes, links };
+  return { nodes, links, clusterColors };
 }
 
 export function useVouchGraph(
@@ -193,6 +209,7 @@ export function useVouchGraph(
   const pendingDidsRef = useRef<Set<string>>(new Set());
   const resolveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subscriptionRef = useRef<JetstreamSubscription | null>(null);
+  const clusterColorsRef = useRef<Map<number, string>>(new Map());
 
   // Incremental update callback (set by App after Cosmograph mounts)
   const incrementalCbRef = useRef<((update: IncrementalUpdate) => void) | null>(
@@ -286,6 +303,7 @@ export function useVouchGraph(
           sS,
         );
 
+        clusterColorsRef.current = data.clusterColors;
         setInitialData(data);
         setStatus((s) => ({
           ...s,
@@ -317,17 +335,20 @@ export function useVouchGraph(
 
             // For new nodes from Jetstream, assign cluster 0 and minimal degree.
             // Full cluster recomputation would be expensive and disruptive.
+            const fallbackColor =
+              clusterColorsRef.current.get(0) ?? pastelColorFromHue(0);
             for (const did of [edge.from, edge.to]) {
               if (!nodeSetRef.current.has(did)) {
                 nodeSetRef.current.add(did);
                 if (!getHandle(did)) pendingDidsRef.current.add(did);
-                newNodes.push(makeNode(did, 1, 0, nMin, nMax, nScale));
+                newNodes.push(
+                  makeNode(did, 1, 0, fallbackColor, nMin, nMax, nScale),
+                );
               }
             }
 
-            // New Jetstream nodes get cluster 0, so use cluster 0's color for the link
             const newLinks: VouchLink[] = [
-              { source: edge.from, target: edge.to, color: CLUSTER_COLORS[0] },
+              { source: edge.from, target: edge.to, color: fallbackColor },
             ];
 
             if (incrementalCbRef.current) {
