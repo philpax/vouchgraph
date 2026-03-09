@@ -1,34 +1,208 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { VouchEdge, VouchNode } from '../lib/types';
+import type { VouchEdge } from '../lib/types';
 import { fetchAllVouches, type FetchProgress } from '../lib/vouch-fetcher';
 import { resolveHandles, getHandle } from '../lib/handle-resolver';
 import { createJetstreamSubscription } from '../lib/jetstream';
 import type { JetstreamSubscription } from '@atcute/jetstream';
 
-export interface VouchGraphState {
-  nodes: Map<string, VouchNode>;
-  edges: VouchEdge[];
+export interface VouchNode {
+  [key: string]: unknown;
+  id: string;
+  label: string;
+  color: string;
+  size: number;
+  cluster: number;
+}
+
+export interface VouchLink {
+  [key: string]: unknown;
+  source: string;
+  target: string;
+}
+
+export interface VouchGraphStatus {
   loading: boolean;
   error: string | null;
   progress: FetchProgress | null;
   jetstreamConnected: boolean;
+  nodeCount: number;
+  edgeCount: number;
 }
 
-export function useVouchGraph() {
-  const [state, setState] = useState<VouchGraphState>({
-    nodes: new Map(),
-    edges: [],
+export interface IncrementalUpdate {
+  newNodes: VouchNode[];
+  newLinks: VouchLink[];
+  removedLinks: [string, string][]; // [source, target] pairs
+}
+
+export interface VouchGraphResult {
+  /** Initial nodes — set once when backfill completes, never changes after */
+  nodes: VouchNode[];
+  /** Initial links — set once when backfill completes, never changes after */
+  links: VouchLink[];
+  status: VouchGraphStatus;
+  /** Register a callback for live Jetstream updates (new nodes/links) */
+  onIncremental: (cb: (update: IncrementalUpdate) => void) => void;
+}
+
+const CLUSTER_COLORS = [
+  '#6366f1', // indigo
+  '#f43f5e', // rose
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#3b82f6', // blue
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#ef4444', // red
+  '#84cc16', // lime
+  '#06b6d4', // cyan
+  '#f97316', // orange
+];
+
+const HANDLE_RESOLVE_BATCH = 50;
+const HANDLE_RESOLVE_INTERVAL = 2000;
+
+function computeClusters(nodeIds: Set<string>, links: { source: string; target: string }[]): Map<string, number> {
+  const parent = new Map<string, string>();
+
+  function find(x: string): string {
+    if (!parent.has(x)) parent.set(x, x);
+    if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
+    return parent.get(x)!;
+  }
+
+  function union(a: string, b: string) {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  }
+
+  for (const link of links) {
+    union(link.source, link.target);
+  }
+
+  const rootCounts = new Map<string, number>();
+  for (const node of nodeIds) {
+    const root = find(node);
+    rootCounts.set(root, (rootCounts.get(root) ?? 0) + 1);
+  }
+
+  const sortedRoots = [...rootCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([root]) => root);
+
+  const rootToCluster = new Map<string, number>();
+  for (let i = 0; i < sortedRoots.length; i++) {
+    rootToCluster.set(sortedRoots[i], i);
+  }
+
+  const clusterMap = new Map<string, number>();
+  for (const node of nodeIds) {
+    clusterMap.set(node, rootToCluster.get(find(node))!);
+  }
+
+  return clusterMap;
+}
+
+function makeNode(id: string, degree: number, clusterId: number, nodeSizeMin: number, nodeSizeMax: number, nodeSizeScale: number): VouchNode {
+  const raw = nodeSizeMin + Math.log2(degree + 1) * nodeSizeScale;
+  const size = Math.min(nodeSizeMax, Math.max(nodeSizeMin, raw));
+  const handle = getHandle(id);
+  return {
+    id,
+    label: handle ?? id,
+    color: CLUSTER_COLORS[clusterId % CLUSTER_COLORS.length],
+    size,
+    cluster: clusterId,
+  };
+}
+
+function buildNodesAndLinks(
+  nodeSet: Set<string>,
+  linkList: { source: string; target: string }[],
+  nodeSizeMin: number,
+  nodeSizeMax: number,
+  nodeSizeScale: number,
+): { nodes: VouchNode[]; links: VouchLink[] } {
+  const clusters = computeClusters(nodeSet, linkList);
+
+  const degree = new Map<string, number>();
+  for (const id of nodeSet) degree.set(id, 0);
+  for (const link of linkList) {
+    degree.set(link.source, (degree.get(link.source) ?? 0) + 1);
+    degree.set(link.target, (degree.get(link.target) ?? 0) + 1);
+  }
+
+  const nodes: VouchNode[] = [];
+  for (const id of nodeSet) {
+    nodes.push(makeNode(id, degree.get(id) ?? 0, clusters.get(id) ?? 0, nodeSizeMin, nodeSizeMax, nodeSizeScale));
+  }
+
+  const links: VouchLink[] = linkList.map(l => ({ source: l.source, target: l.target }));
+  return { nodes, links };
+}
+
+export function useVouchGraph(
+  nodeSizeMin: number,
+  nodeSizeMax: number,
+  nodeSizeScale: number,
+): VouchGraphResult {
+  const [status, setStatus] = useState<VouchGraphStatus>({
     loading: true,
     error: null,
     progress: null,
     jetstreamConnected: false,
+    nodeCount: 0,
+    edgeCount: 0,
   });
 
+  // Initial data — set once after backfill
+  const [initialData, setInitialData] = useState<{ nodes: VouchNode[]; links: VouchLink[] }>({ nodes: [], links: [] });
+
+  // Internal mutable state for tracking known nodes/edges
+  const nodeSetRef = useRef<Set<string>>(new Set());
+  const linkSetRef = useRef<Set<string>>(new Set());
+  const pendingDidsRef = useRef<Set<string>>(new Set());
+  const resolveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subscriptionRef = useRef<JetstreamSubscription | null>(null);
 
-  const ensureNode = useCallback((nodes: Map<string, VouchNode>, did: string) => {
-    if (!nodes.has(did)) {
-      nodes.set(did, { did, handle: getHandle(did) });
+  // Incremental update callback (set by App after Cosmograph mounts)
+  const incrementalCbRef = useRef<((update: IncrementalUpdate) => void) | null>(null);
+
+  // Keep size params in a ref so Jetstream callback uses latest values
+  const sizeParamsRef = useRef({ nodeSizeMin, nodeSizeMax, nodeSizeScale });
+  sizeParamsRef.current = { nodeSizeMin, nodeSizeMax, nodeSizeScale };
+
+  const onIncremental = useCallback((cb: (update: IncrementalUpdate) => void) => {
+    incrementalCbRef.current = cb;
+  }, []);
+
+  const scheduleHandleResolve = useCallback(() => {
+    if (resolveTimerRef.current) return;
+
+    const flush = async () => {
+      resolveTimerRef.current = null;
+      const pending = pendingDidsRef.current;
+      if (pending.size === 0) return;
+
+      const batch = [...pending].slice(0, HANDLE_RESOLVE_BATCH);
+      for (const did of batch) pending.delete(did);
+
+      await resolveHandles(batch);
+
+      // Note: labels won't live-update for already-rendered nodes in Cosmograph
+      // since we can't easily update individual point labels without re-preparing data.
+      // New nodes added via Jetstream will pick up resolved handles though.
+
+      if (pending.size > 0) {
+        resolveTimerRef.current = setTimeout(flush, HANDLE_RESOLVE_INTERVAL);
+      }
+    };
+
+    if (pendingDidsRef.current.size >= HANDLE_RESOLVE_BATCH) {
+      flush();
+    } else {
+      resolveTimerRef.current = setTimeout(flush, HANDLE_RESOLVE_INTERVAL);
     }
   }, []);
 
@@ -37,82 +211,103 @@ export function useVouchGraph() {
 
     (async () => {
       try {
-        // Fetch all vouches
-        const edges = await fetchAllVouches(
-          (progress) => setState((s) => ({ ...s, progress })),
+        const allEdges = await fetchAllVouches(
+          (progress) => setStatus(s => ({ ...s, progress })),
+          undefined,
           abortController.signal,
         );
 
         if (abortController.signal.aborted) return;
 
-        // Collect all unique DIDs
         const allDids = new Set<string>();
-        for (const edge of edges) {
+        for (const edge of allEdges) {
           allDids.add(edge.from);
           allDids.add(edge.to);
         }
 
-        // Resolve handles
         await resolveHandles([...allDids]);
 
-        // Build node map
-        const nodes = new Map<string, VouchNode>();
-        for (const did of allDids) {
-          nodes.set(did, { did, handle: getHandle(did) });
+        if (abortController.signal.aborted) return;
+
+        // Track all known nodes/edges
+        for (const edge of allEdges) {
+          nodeSetRef.current.add(edge.from);
+          nodeSetRef.current.add(edge.to);
+          linkSetRef.current.add(`${edge.from}->${edge.to}`);
         }
 
-        setState((s) => ({
+        const linkList = allEdges.map(e => ({ source: e.from, target: e.to }));
+        const { nodeSizeMin: sm, nodeSizeMax: sM, nodeSizeScale: sS } = sizeParamsRef.current;
+        const data = buildNodesAndLinks(nodeSetRef.current, linkList, sm, sM, sS);
+
+        setInitialData(data);
+        setStatus(s => ({
           ...s,
-          nodes,
-          edges,
           loading: false,
           progress: null,
+          nodeCount: nodeSetRef.current.size,
+          edgeCount: linkSetRef.current.size,
         }));
 
-        // Start Jetstream
+        // Pending handle resolution for any remaining
+        for (const did of allDids) {
+          if (!getHandle(did)) pendingDidsRef.current.add(did);
+        }
+        scheduleHandleResolve();
+
+        // Start Jetstream for live updates
         subscriptionRef.current = createJetstreamSubscription({
-          onCreate: (edge) => {
-            setState((s) => {
-              const newNodes = new Map(s.nodes);
-              ensureNode(newNodes, edge.from);
-              ensureNode(newNodes, edge.to);
+          onCreate: (edge: VouchEdge) => {
+            const key = `${edge.from}->${edge.to}`;
+            if (linkSetRef.current.has(key)) return;
+            linkSetRef.current.add(key);
 
-              // Resolve new DIDs in background
-              const newDids = [edge.from, edge.to].filter((d) => !getHandle(d));
-              if (newDids.length > 0) {
-                resolveHandles(newDids).then(() => {
-                  setState((prev) => {
-                    const updated = new Map(prev.nodes);
-                    for (const did of newDids) {
-                      const handle = getHandle(did);
-                      if (handle) {
-                        updated.set(did, { did, handle });
-                      }
-                    }
-                    return { ...prev, nodes: updated };
-                  });
-                });
+            const newNodes: VouchNode[] = [];
+            const { nodeSizeMin: nMin, nodeSizeMax: nMax, nodeSizeScale: nScale } = sizeParamsRef.current;
+
+            // For new nodes from Jetstream, assign cluster 0 and minimal degree.
+            // Full cluster recomputation would be expensive and disruptive.
+            for (const did of [edge.from, edge.to]) {
+              if (!nodeSetRef.current.has(did)) {
+                nodeSetRef.current.add(did);
+                if (!getHandle(did)) pendingDidsRef.current.add(did);
+                newNodes.push(makeNode(did, 1, 0, nMin, nMax, nScale));
               }
+            }
 
-              return {
-                ...s,
-                nodes: newNodes,
-                edges: [edge, ...s.edges],
-              };
-            });
+            const newLinks: VouchLink[] = [{ source: edge.from, target: edge.to }];
+
+            if (incrementalCbRef.current) {
+              incrementalCbRef.current({ newNodes, newLinks, removedLinks: [] });
+            }
+
+            setStatus(s => ({
+              ...s,
+              nodeCount: nodeSetRef.current.size,
+              edgeCount: linkSetRef.current.size,
+            }));
+
+            scheduleHandleResolve();
           },
           onDelete: (did, rkey) => {
-            setState((s) => ({
-              ...s,
-              edges: s.edges.filter((e) => !(e.from === did && e.rkey === rkey)),
-            }));
+            const key = `${did}->${rkey}`;
+            if (linkSetRef.current.has(key)) {
+              linkSetRef.current.delete(key);
+              if (incrementalCbRef.current) {
+                incrementalCbRef.current({ newNodes: [], newLinks: [], removedLinks: [[did, rkey]] });
+              }
+              setStatus(s => ({
+                ...s,
+                edgeCount: linkSetRef.current.size,
+              }));
+            }
           },
-          onConnect: () => setState((s) => ({ ...s, jetstreamConnected: true })),
-          onDisconnect: () => setState((s) => ({ ...s, jetstreamConnected: false })),
+          onConnect: () => setStatus(s => ({ ...s, jetstreamConnected: true })),
+          onDisconnect: () => setStatus(s => ({ ...s, jetstreamConnected: false })),
         });
       } catch (err) {
         if (!abortController.signal.aborted) {
-          setState((s) => ({
+          setStatus(s => ({
             ...s,
             loading: false,
             error: err instanceof Error ? err.message : 'Unknown error',
@@ -123,10 +318,9 @@ export function useVouchGraph() {
 
     return () => {
       abortController.abort();
-      // JetstreamSubscription doesn't have a close method exposed directly,
-      // but aborting prevents new state updates
+      if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
     };
-  }, [ensureNode]);
+  }, [scheduleHandleResolve]);
 
-  return state;
+  return { nodes: initialData.nodes, links: initialData.links, status, onIncremental };
 }

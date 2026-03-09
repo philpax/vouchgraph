@@ -15,6 +15,7 @@ export interface FetchProgress {
 
 export async function fetchAllVouches(
   onProgress?: (progress: FetchProgress) => void,
+  onEdges?: (edges: VouchEdge[]) => void,
   signal?: AbortSignal,
 ): Promise<VouchEdge[]> {
   // Phase 1: Get all DIDs that have vouch records
@@ -47,6 +48,9 @@ export async function fetchAllVouches(
       try {
         const repoEdges = await fetchRepoVouches(did, signal);
         edges.push(...repoEdges);
+        if (repoEdges.length > 0) {
+          onEdges?.(repoEdges);
+        }
       } catch {
         // Skip individual repo failures
       }
