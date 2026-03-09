@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVouchGraph } from "./hooks/useVouchGraph";
 import { useGraphHighlight } from "./hooks/useGraphHighlight";
 import { useSelectedProfile } from "./hooks/useSelectedProfile";
@@ -10,6 +10,7 @@ import {
   type SimParams,
 } from "./components/DebugControls";
 import { ProgressBar } from "./components/StatusBar";
+import { getHandle, getDidByHandle } from "./lib/handle-resolver";
 
 const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has(
   "debugControls",
@@ -56,7 +57,11 @@ export default function App() {
       highlightNode(index);
       focusPointRef.current?.(index);
       const node = allNodes[index];
-      if (node) fetchProfile(node.id);
+      if (node) {
+        fetchProfile(node.id);
+        const handle = getHandle(node.id) ?? node.id;
+        window.history.replaceState(null, "", `#${handle}`);
+      }
     },
     [highlightNode, allNodes, fetchProfile],
   );
@@ -74,7 +79,31 @@ export default function App() {
     clearHighlight();
     clearProfile();
     focusPointRef.current?.(undefined);
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
   }, [highlight, clearHighlight, clearProfile]);
+
+  // Sync selection from URL hash
+  useEffect(() => {
+    if (status.loading || allNodes.length === 0) return;
+
+    const selectFromHash = () => {
+      const hash = decodeURIComponent(window.location.hash.slice(1));
+      if (!hash) return;
+
+      // Try as DID first, then as handle
+      let did = nodeIdToIndex.has(hash) ? hash : undefined;
+      if (!did) did = getDidByHandle(hash);
+      if (!did) return;
+
+      const index = nodeIdToIndex.get(did);
+      if (index !== undefined) selectNode(index);
+    };
+
+    selectFromHash();
+
+    window.addEventListener("hashchange", selectFromHash);
+    return () => window.removeEventListener("hashchange", selectFromHash);
+  }, [status.loading, allNodes, nodeIdToIndex, selectNode]);
 
   const handleReheat = useCallback(() => {
     reheatRef.current?.();

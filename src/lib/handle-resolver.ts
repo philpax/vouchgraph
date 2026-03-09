@@ -29,6 +29,13 @@ export async function resolveHandles(dids: string[]): Promise<void> {
   }
 }
 
+export function getDidByHandle(handle: string): string | undefined {
+  for (const [did, h] of cache) {
+    if (h === handle) return did;
+  }
+  return undefined;
+}
+
 export function displayName(did: string): string {
   return cache.get(did) ?? did;
 }
