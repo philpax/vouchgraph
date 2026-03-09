@@ -43,6 +43,8 @@ export default function App() {
     clearProfile,
   } = useSelectedProfile();
 
+  const nodeDids = useMemo(() => allNodes.map((n) => n.id), [allNodes]);
+
   const nodeIdToIndex = useMemo(() => {
     const map = new Map<string, number>();
     allNodes.forEach((n, i) => map.set(n.id, i));
@@ -100,6 +102,7 @@ export default function App() {
         profile={profile}
         profileLoading={profileLoading}
         vouchDetails={vouchDetails}
+        nodeDids={nodeDids}
         onSelectDid={handleSelectDid}
         onRebuild={rebuild}
       />

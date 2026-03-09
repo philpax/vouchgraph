@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { AppBskyActorDefs } from "@atcute/bluesky/lexicons";
 import type { VouchGraphStatus } from "../hooks/useVouchGraph";
 import { getHandle } from "../lib/handle-resolver";
@@ -8,6 +8,7 @@ interface InfoPanelProps {
   profile: AppBskyActorDefs.ProfileViewDetailed | null;
   profileLoading: boolean;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
+  nodeDids: string[];
   onSelectDid: (did: string) => void;
   onRebuild: () => void;
 }
@@ -17,6 +18,7 @@ export function InfoPanel({
   profile,
   profileLoading,
   vouchDetails,
+  nodeDids,
   onSelectDid,
   onRebuild,
 }: InfoPanelProps) {
@@ -71,6 +73,10 @@ export function InfoPanel({
         <div className="mt-2 text-red-400 text-xs">{status.error}</div>
       )}
 
+      {!status.loading && (
+        <SearchBar nodeDids={nodeDids} onSelect={onSelectDid} />
+      )}
+
       {(profile || profileLoading) && (
         <div className="mt-3 border-t border-white/10 pt-3">
           {profileLoading && !profile && (
@@ -83,6 +89,85 @@ export function InfoPanel({
               onSelectDid={onSelectDid}
             />
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const MAX_RESULTS = 8;
+
+function SearchBar({
+  nodeDids,
+  onSelect,
+}: {
+  nodeDids: string[];
+  onSelect: (did: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const matches: { did: string; handle: string }[] = [];
+    for (const did of nodeDids) {
+      const handle = getHandle(did) ?? did;
+      if (handle.toLowerCase().includes(q) || did.toLowerCase().includes(q)) {
+        matches.push({ did, handle });
+        if (matches.length >= MAX_RESULTS) break;
+      }
+    }
+    return matches;
+  }, [query, nodeDids]);
+
+  const selectResult = (did: string) => {
+    setQuery("");
+    inputRef.current?.blur();
+    onSelect(did);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && results.length > 0) {
+      e.preventDefault();
+      selectResult(results[0].did);
+    }
+    if (e.key === "Escape") {
+      setQuery("");
+      inputRef.current?.blur();
+    }
+  };
+
+  return (
+    <div className="mt-2 relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        onKeyDown={handleKeyDown}
+        placeholder="Search users..."
+        className="w-full text-xs px-2.5 py-1.5 bg-white/10 border border-white/10 rounded text-white placeholder-white/30 outline-none focus:border-indigo-400/50"
+      />
+      {focused && query.trim() && results.length > 0 && (
+        <div className="absolute left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded overflow-hidden z-10">
+          {results.map((r) => (
+            <button
+              key={r.did}
+              onMouseDown={() => selectResult(r.did)}
+              className="block w-full text-left px-2.5 py-1 text-xs text-indigo-400 hover:bg-white/10 cursor-pointer truncate"
+            >
+              @{r.handle}
+            </button>
+          ))}
+        </div>
+      )}
+      {focused && query.trim() && results.length === 0 && (
+        <div className="absolute left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white/30 z-10">
+          No results
         </div>
       )}
     </div>
