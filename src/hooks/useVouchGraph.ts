@@ -11,6 +11,7 @@ export interface VouchNode {
   id: string;
   label: string;
   color: string;
+  hue: number;
   size: number;
   cluster: number;
 }
@@ -51,7 +52,7 @@ const HANDLE_RESOLVE_INTERVAL = 2000;
 
 interface ClusterInfo {
   clusters: Map<string, number>;
-  clusterColors: Map<number, string>;
+  clusterHues: Map<number, number>;
 }
 
 function computeClusters(
@@ -109,19 +110,19 @@ function computeClusters(
     hues.push(hueFromName(name));
   }
 
-  const clusterColors = new Map<number, string>();
+  const clusterHueMap = new Map<number, number>();
   for (const [cid, hues] of clusterHues) {
-    clusterColors.set(cid, pastelColorFromHue(circularMeanHue(hues)));
+    clusterHueMap.set(cid, circularMeanHue(hues));
   }
 
-  return { clusters: clusterMap, clusterColors };
+  return { clusters: clusterMap, clusterHues: clusterHueMap };
 }
 
 function makeNode(
   id: string,
   degree: number,
   clusterId: number,
-  color: string,
+  hue: number,
   nodeSizeMin: number,
   nodeSizeMax: number,
   nodeSizeScale: number,
@@ -132,7 +133,8 @@ function makeNode(
   return {
     id,
     label: handle ?? id,
-    color,
+    color: pastelColorFromHue(hue),
+    hue,
     size,
     cluster: clusterId,
   };
@@ -147,7 +149,6 @@ function buildNodesAndLinks(
 ): {
   nodes: VouchNode[];
   links: VouchLink[];
-  clusterColors: Map<number, string>;
 } {
   const degree = new Map<string, number>();
   for (const id of nodeSet) degree.set(id, 0);
@@ -156,17 +157,18 @@ function buildNodesAndLinks(
     degree.set(link.target, (degree.get(link.target) ?? 0) + 1);
   }
 
-  const { clusters, clusterColors } = computeClusters(nodeSet, linkList);
+  const { clusters, clusterHues } = computeClusters(nodeSet, linkList);
 
   const nodes: VouchNode[] = [];
   for (const id of nodeSet) {
     const cid = clusters.get(id) ?? 0;
+    const hue = clusterHues.get(cid) ?? 0;
     nodes.push(
       makeNode(
         id,
         degree.get(id) ?? 0,
         cid,
-        clusterColors.get(cid) ?? "#888888",
+        hue,
         nodeSizeMin,
         nodeSizeMax,
         nodeSizeScale,
@@ -177,10 +179,10 @@ function buildNodesAndLinks(
   // Color each link by its source node's cluster color
   const links: VouchLink[] = linkList.map((l) => {
     const srcCluster = clusters.get(l.source) ?? 0;
-    const color = clusterColors.get(srcCluster) ?? "#888888";
+    const color = pastelColorFromHue(clusterHues.get(srcCluster) ?? 0);
     return { source: l.source, target: l.target, color };
   });
-  return { nodes, links, clusterColors };
+  return { nodes, links };
 }
 
 export function useVouchGraph(
@@ -209,7 +211,7 @@ export function useVouchGraph(
   const pendingDidsRef = useRef<Set<string>>(new Set());
   const resolveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subscriptionRef = useRef<JetstreamSubscription | null>(null);
-  const clusterColorsRef = useRef<Map<number, string>>(new Map());
+  const defaultHueRef = useRef<number>(0);
 
   // Incremental update callback (set by App after Cosmograph mounts)
   const incrementalCbRef = useRef<((update: IncrementalUpdate) => void) | null>(
@@ -306,7 +308,6 @@ export function useVouchGraph(
           sS,
         );
 
-        clusterColorsRef.current = data.clusterColors;
         setInitialData(data);
         setStatus((s) => ({
           ...s,
@@ -339,20 +340,23 @@ export function useVouchGraph(
 
             // For new nodes from Jetstream, assign cluster 0 and minimal degree.
             // Full cluster recomputation would be expensive and disruptive.
-            const fallbackColor =
-              clusterColorsRef.current.get(0) ?? pastelColorFromHue(0);
+            const fallbackHue = defaultHueRef.current;
             for (const did of [edge.from, edge.to]) {
               if (!nodeSetRef.current.has(did)) {
                 nodeSetRef.current.add(did);
                 if (!getHandle(did)) pendingDidsRef.current.add(did);
                 newNodes.push(
-                  makeNode(did, 1, 0, fallbackColor, nMin, nMax, nScale),
+                  makeNode(did, 1, 0, fallbackHue, nMin, nMax, nScale),
                 );
               }
             }
 
             const newLinks: VouchLink[] = [
-              { source: edge.from, target: edge.to, color: fallbackColor },
+              {
+                source: edge.from,
+                target: edge.to,
+                color: pastelColorFromHue(fallbackHue),
+              },
             ];
 
             if (incrementalCbRef.current) {

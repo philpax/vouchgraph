@@ -36,6 +36,7 @@ export default function App() {
     pointLabelClassName,
     showLabelsFor,
     pointColorByFn,
+    linkColorByFn,
   } = useGraphHighlight(nodes, links);
 
   const {
@@ -91,6 +92,7 @@ export default function App() {
         showLabelsFor={showLabelsFor}
         pointLabelClassName={pointLabelClassName}
         pointColorByFn={pointColorByFn}
+        linkColorByFn={linkColorByFn}
         onPointClick={selectNode}
         onFocusPointRef={focusPointRef}
         onBackgroundClick={handleBackgroundClick}

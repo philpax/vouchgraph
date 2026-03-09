@@ -1,10 +1,46 @@
 import { useCallback, useMemo, useState } from "react";
-import { hexToRgba } from "../lib/color";
+import { hexToRgba, pastelColorFromHue } from "../lib/color";
 import type { VouchNode, VouchLink } from "./useVouchGraph";
 
 export interface HighlightState {
-  distances: Map<number, number>;
+  outboundDist: Map<number, number>;
+  inboundDist: Map<number, number>;
   center: number;
+}
+
+// Fixed hues for trust directions
+const OUTBOUND_HEX = pastelColorFromHue(200); // blue — who this node vouches for
+const INBOUND_HEX = pastelColorFromHue(30); // orange — who vouches for this node
+const MUTUAL_HEX = pastelColorFromHue(145); // green — mutual recognition
+
+function directionColor(hex: string, dist: number): string {
+  if (dist <= 1) return hex;
+  return hexToRgba(hex, Math.pow(0.25, dist - 1), 1.0);
+}
+
+const DIMMED = hexToRgba("#888888", 0.06, 0.3);
+
+/** Resolve the highlight color for a node given the highlight state. */
+function nodeHighlightColor(
+  highlight: HighlightState,
+  index: number,
+  originalColor: string,
+): string {
+  if (index === highlight.center) return originalColor;
+
+  const outDist = highlight.outboundDist.get(index);
+  const inDist = highlight.inboundDist.get(index);
+
+  if (outDist === undefined && inDist === undefined) return DIMMED;
+
+  // On both trees — mutual recognition
+  if (outDist !== undefined && inDist !== undefined)
+    return directionColor(MUTUAL_HEX, Math.min(outDist, inDist));
+
+  if (outDist !== undefined) return directionColor(OUTBOUND_HEX, outDist);
+  if (inDist !== undefined) return directionColor(INBOUND_HEX, inDist);
+
+  return DIMMED;
 }
 
 export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
@@ -16,8 +52,9 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     return map;
   }, [nodes]);
 
-  const { outboundAdj, vouchDetails } = useMemo(() => {
-    const adj = new Map<number, number[]>();
+  const { outboundAdj, inboundAdj, vouchDetails } = useMemo(() => {
+    const outAdj = new Map<number, number[]>();
+    const inAdj = new Map<number, number[]>();
     const details = new Map<
       string,
       { inbound: string[]; outbound: string[] }
@@ -26,9 +63,15 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
       const srcIdx = nodeIdToIndex.get(l.source) ?? -1;
       const tgtIdx = nodeIdToIndex.get(l.target) ?? -1;
       if (srcIdx === -1 || tgtIdx === -1) continue;
-      const list = adj.get(srcIdx);
-      if (list) list.push(tgtIdx);
-      else adj.set(srcIdx, [tgtIdx]);
+
+      const outList = outAdj.get(srcIdx);
+      if (outList) outList.push(tgtIdx);
+      else outAdj.set(srcIdx, [tgtIdx]);
+
+      const inList = inAdj.get(tgtIdx);
+      if (inList) inList.push(srcIdx);
+      else inAdj.set(tgtIdx, [srcIdx]);
+
       const src = details.get(l.source) ?? { inbound: [], outbound: [] };
       src.outbound.push(l.target);
       details.set(l.source, src);
@@ -36,83 +79,138 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
       tgt.inbound.push(l.source);
       details.set(l.target, tgt);
     }
-    return { outboundAdj: adj, vouchDetails: details };
+    return {
+      outboundAdj: outAdj,
+      inboundAdj: inAdj,
+      vouchDetails: details,
+    };
   }, [links, nodeIdToIndex]);
 
   const highlightNode = useCallback(
     (index: number) => {
-      const distances = new Map<number, number>();
-      distances.set(index, 0);
-      const queue = [index];
+      // Outbound BFS (who does this node trust, transitively)
+      const outboundDist = new Map<number, number>();
+      outboundDist.set(index, 0);
+      let queue = [index];
       while (queue.length > 0) {
         const current = queue.shift()!;
-        const currentDist = distances.get(current)!;
-        const outbound = outboundAdj.get(current) ?? [];
-        for (const n of outbound) {
-          if (!distances.has(n)) {
-            distances.set(n, currentDist + 1);
+        const currentDist = outboundDist.get(current)!;
+        for (const n of outboundAdj.get(current) ?? []) {
+          if (!outboundDist.has(n)) {
+            outboundDist.set(n, currentDist + 1);
             queue.push(n);
           }
         }
       }
-      setHighlight({ distances, center: index });
+
+      // Inbound BFS (who trusts this node, transitively)
+      const inboundDist = new Map<number, number>();
+      inboundDist.set(index, 0);
+      queue = [index];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        const currentDist = inboundDist.get(current)!;
+        for (const n of inboundAdj.get(current) ?? []) {
+          if (!inboundDist.has(n)) {
+            inboundDist.set(n, currentDist + 1);
+            queue.push(n);
+          }
+        }
+      }
+
+      setHighlight({ outboundDist, inboundDist, center: index });
     },
-    [outboundAdj],
+    [outboundAdj, inboundAdj],
   );
 
   const clearHighlight = useCallback(() => {
     setHighlight(null);
   }, []);
 
-  // Label styles
-  const labelStyleByIndex = useMemo(() => {
-    const map = new Map<number, string>();
-    nodes.forEach((node, i) => {
-      map.set(
-        i,
-        `background: ${hexToRgba(node.color, 0.85, 0.35)}; color: white; padding: 2px 6px; border-radius: 4px;`,
-      );
-    });
-    return map;
-  }, [nodes]);
-
   const pointLabelClassName = useCallback(
     (_text: string, pointIndex: number) => {
-      const baseStyle =
-        labelStyleByIndex.get(pointIndex) ??
-        "background: rgba(3,7,18,0.8); color: white; padding: 2px 6px; border-radius: 4px;";
-      if (!highlight) return baseStyle;
-      const dist = highlight.distances.get(pointIndex);
-      if (dist === undefined)
-        return baseStyle + " opacity: 0.2; filter: brightness(0.4);";
-      if (dist <= 1) return baseStyle;
-      const alpha = Math.pow(0.25, dist - 1);
-      return baseStyle + ` opacity: ${alpha};`;
+      const node = nodes[pointIndex];
+      const color = highlight
+        ? nodeHighlightColor(highlight, pointIndex, node?.color ?? "#888888")
+        : (node?.color ?? "#888888");
+      const bg = hexToRgba(color, 0.85, 0.35);
+      let style = `background: ${bg}; color: white; padding: 2px 6px; border-radius: 4px;`;
+
+      if (highlight) {
+        const outDist = highlight.outboundDist.get(pointIndex);
+        const inDist = highlight.inboundDist.get(pointIndex);
+        if (outDist === undefined && inDist === undefined) {
+          style += " opacity: 0.2; filter: brightness(0.4);";
+        } else {
+          const dist = Math.min(outDist ?? Infinity, inDist ?? Infinity);
+          if (dist > 1) {
+            style += ` opacity: ${Math.pow(0.25, dist - 1)};`;
+          }
+        }
+      }
+
+      return style;
     },
-    [labelStyleByIndex, highlight],
+    [nodes, highlight],
   );
 
   const showLabelsFor = useMemo(() => {
     if (!highlight) return undefined;
-    const ids: string[] = [];
-    for (const [idx, dist] of highlight.distances) {
-      if (dist <= 2 && idx < nodes.length) {
-        ids.push(nodes[idx].id);
-      }
+    const ids = new Set<string>();
+    for (const [idx, dist] of highlight.outboundDist) {
+      if (dist <= 2 && idx < nodes.length) ids.add(nodes[idx].id);
     }
-    return ids;
+    for (const [idx, dist] of highlight.inboundDist) {
+      if (dist <= 2 && idx < nodes.length) ids.add(nodes[idx].id);
+    }
+    return [...ids];
   }, [highlight, nodes]);
 
   const pointColorByFn = useCallback(
     (colorHex: string, index?: number): string => {
       if (!highlight || index === undefined) return colorHex;
-      const dist = highlight.distances.get(index);
-      if (dist === undefined) return hexToRgba(colorHex, 0.06, 0.3);
-      if (dist <= 1) return colorHex;
-      const alpha = Math.pow(0.25, dist - 1);
-      return hexToRgba(colorHex, alpha, 1.0);
+      return nodeHighlightColor(highlight, index, colorHex);
     },
     [highlight],
+  );
+
+  const linkColorByFn = useCallback(
+    (colorHex: string, index?: number): string => {
+      if (!highlight || index === undefined || index >= links.length)
+        return colorHex;
+      const l = links[index];
+      const srcIdx = nodeIdToIndex.get(l.source);
+      const tgtIdx = nodeIdToIndex.get(l.target);
+      if (srcIdx === undefined || tgtIdx === undefined) return colorHex;
+
+      const srcOutDist = highlight.outboundDist.get(srcIdx);
+      const tgtOutDist = highlight.outboundDist.get(tgtIdx);
+      const srcInDist = highlight.inboundDist.get(srcIdx);
+      const tgtInDist = highlight.inboundDist.get(tgtIdx);
+
+      const onOutbound = srcOutDist !== undefined && tgtOutDist !== undefined;
+      const onInbound = srcInDist !== undefined && tgtInDist !== undefined;
+
+      // Both endpoints on both trees — mutual
+      if (onOutbound && onInbound) {
+        const dist = Math.min(
+          Math.max(srcOutDist, tgtOutDist),
+          Math.max(srcInDist!, tgtInDist!),
+        );
+        return directionColor(MUTUAL_HEX, dist);
+      }
+
+      // Outbound edge
+      if (onOutbound)
+        return directionColor(OUTBOUND_HEX, Math.max(srcOutDist, tgtOutDist));
+
+      // Inbound edge
+      if (onInbound)
+        return directionColor(INBOUND_HEX, Math.max(srcInDist!, tgtInDist!));
+
+      return DIMMED;
+    },
+    [highlight, links, nodeIdToIndex],
   );
 
   return {
@@ -123,5 +221,6 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     pointLabelClassName,
     showLabelsFor,
     pointColorByFn,
+    linkColorByFn,
   };
 }

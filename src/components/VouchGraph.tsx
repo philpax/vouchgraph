@@ -38,6 +38,7 @@ interface VouchGraphProps {
   showLabelsFor: string[] | undefined;
   pointLabelClassName: (text: string, pointIndex: number) => string;
   pointColorByFn: (colorHex: string, index?: number) => string;
+  linkColorByFn: (colorHex: string, index?: number) => string;
   onPointClick: (index: number) => void;
   onBackgroundClick: () => void;
   onReheatRef?: React.MutableRefObject<(() => void) | null>;
@@ -55,6 +56,7 @@ export function VouchGraph({
   showLabelsFor,
   pointLabelClassName,
   pointColorByFn,
+  linkColorByFn,
   onPointClick,
   onBackgroundClick,
   onReheatRef,
@@ -159,6 +161,7 @@ export function VouchGraph({
         pointLabelColor="rgba(255,255,255,0.9)"
         pointLabelClassName={pointLabelClassName}
         pointColorByFn={pointColorByFn}
+        linkColorByFn={linkColorByFn}
         backgroundColor="#030712"
         linkDefaultColor="rgba(255,255,255,0.6)"
         linkDefaultWidth={6}

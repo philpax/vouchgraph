@@ -41,9 +41,13 @@ export function hueFromName(name: string): number {
   return hashString(name) * 360;
 }
 
-/** Pastel hex color from a hue in [0, 360). */
-export function pastelColorFromHue(hue: number): string {
-  return hsvToHex(((hue % 360) + 360) % 360, 0.45, 0.95);
+/** Hex color from a hue in [0, 360), with configurable saturation and value. */
+export function pastelColorFromHue(
+  hue: number,
+  s: number = 0.45,
+  v: number = 0.95,
+): string {
+  return hsvToHex(((hue % 360) + 360) % 360, s, v);
 }
 
 /** Circular mean of an array of hues (in degrees). */
