@@ -1,12 +1,12 @@
-import { Client, simpleFetchHandler } from '@atcute/client';
-import '@atcute/atproto';
-import '@atcute/bluesky';
-import '../lexicons';
+import { Client, simpleFetchHandler } from "@atcute/client";
+import "@atcute/atproto";
+import "@atcute/bluesky";
+import "../lexicons";
 
 export const relayClient = new Client({
-  handler: simpleFetchHandler({ service: 'https://bsky.network' }),
+  handler: simpleFetchHandler({ service: "https://bsky.network" }),
 });
 
 export const publicClient = new Client({
-  handler: simpleFetchHandler({ service: 'https://public.api.bsky.app' }),
+  handler: simpleFetchHandler({ service: "https://public.api.bsky.app" }),
 });

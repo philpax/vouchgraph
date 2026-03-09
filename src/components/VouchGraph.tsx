@@ -1,27 +1,31 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CosmographProvider,
   Cosmograph,
   prepareCosmographData,
   type CosmographRef,
   type CosmographConfig,
-} from '@cosmograph/react';
-import type { VouchNode, VouchLink, IncrementalUpdate } from '../hooks/useVouchGraph';
-import type { SimParams } from './DebugControls';
+} from "@cosmograph/react";
+import type {
+  VouchNode,
+  VouchLink,
+  IncrementalUpdate,
+} from "../hooks/useVouchGraph";
+import type { SimParams } from "./DebugControls";
 
 const DATA_PREP_CONFIG = {
   points: {
-    pointIdBy: 'id',
-    pointLabelBy: 'label',
-    pointColorBy: 'color',
-    pointSizeBy: 'size',
-    pointIncludeColumns: ['*'] as string[],
+    pointIdBy: "id",
+    pointLabelBy: "label",
+    pointColorBy: "color",
+    pointSizeBy: "size",
+    pointIncludeColumns: ["*"] as string[],
   },
   links: {
-    linkSourceBy: 'source',
-    linkTargetsBy: ['target'],
-    linkColorBy: 'color',
-    linkIncludeColumns: ['*'] as string[],
+    linkSourceBy: "source",
+    linkTargetsBy: ["target"],
+    linkColorBy: "color",
+    linkIncludeColumns: ["*"] as string[],
   },
 };
 
@@ -40,12 +44,21 @@ interface VouchGraphProps {
 }
 
 export function VouchGraph({
-  nodes, links, loading, params, onIncremental,
-  showLabelsFor, pointLabelClassName, pointColorByFn,
-  onPointClick, onBackgroundClick, onReheatRef,
+  nodes,
+  links,
+  loading,
+  params,
+  onIncremental,
+  showLabelsFor,
+  pointLabelClassName,
+  pointColorByFn,
+  onPointClick,
+  onBackgroundClick,
+  onReheatRef,
 }: VouchGraphProps) {
   const cosmographRef = useRef<CosmographRef>(undefined);
-  const [cosmographConfig, setCosmographConfig] = useState<Partial<CosmographConfig> | null>(null);
+  const [cosmographConfig, setCosmographConfig] =
+    useState<Partial<CosmographConfig> | null>(null);
 
   // Expose reheat to parent
   useEffect(() => {
@@ -61,7 +74,11 @@ export function VouchGraph({
     let cancelled = false;
 
     (async () => {
-      const result = await prepareCosmographData(DATA_PREP_CONFIG, nodes, links);
+      const result = await prepareCosmographData(
+        DATA_PREP_CONFIG,
+        nodes,
+        links,
+      );
       if (cancelled || !result) return;
 
       setCosmographConfig({
@@ -71,7 +88,9 @@ export function VouchGraph({
       });
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [loading, nodes, links, cosmographConfig]);
 
   // Wire up incremental Jetstream updates
@@ -81,10 +100,20 @@ export function VouchGraph({
       if (!cosmo) return;
 
       if (update.newNodes.length > 0) {
-        cosmo.addPoints(update.newNodes.map(n => ({ id: n.id, label: n.label, color: n.color, size: n.size, cluster: n.cluster })));
+        cosmo.addPoints(
+          update.newNodes.map((n) => ({
+            id: n.id,
+            label: n.label,
+            color: n.color,
+            size: n.size,
+            cluster: n.cluster,
+          })),
+        );
       }
       if (update.newLinks.length > 0) {
-        cosmo.addLinks(update.newLinks.map(l => ({ source: l.source, target: l.target })));
+        cosmo.addLinks(
+          update.newLinks.map((l) => ({ source: l.source, target: l.target })),
+        );
       }
       if (update.removedLinks.length > 0) {
         cosmo.removeLinksByPointIdPairs(update.removedLinks);
@@ -92,10 +121,13 @@ export function VouchGraph({
     });
   }, [onIncremental]);
 
-  const handlePointClick = useCallback((index: number) => {
-    cosmographRef.current?.setFocusedPoint(index);
-    onPointClick(index);
-  }, [onPointClick]);
+  const handlePointClick = useCallback(
+    (index: number) => {
+      cosmographRef.current?.setFocusedPoint(index);
+      onPointClick(index);
+    },
+    [onPointClick],
+  );
 
   const handleBackgroundClick = useCallback(() => {
     cosmographRef.current?.setFocusedPoint(undefined);

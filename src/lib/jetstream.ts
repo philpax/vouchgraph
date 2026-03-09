@@ -1,7 +1,7 @@
-import { JetstreamSubscription } from '@atcute/jetstream';
-import type { VouchEdge } from './types';
+import { JetstreamSubscription } from "@atcute/jetstream";
+import type { VouchEdge } from "./types";
 
-const COLLECTION = 'dev.atvouch.graph.vouch';
+const COLLECTION = "dev.atvouch.graph.vouch";
 
 export interface JetstreamCallbacks {
   onCreate: (edge: VouchEdge) => void;
@@ -10,9 +10,11 @@ export interface JetstreamCallbacks {
   onDisconnect: () => void;
 }
 
-export function createJetstreamSubscription(callbacks: JetstreamCallbacks): JetstreamSubscription {
+export function createJetstreamSubscription(
+  callbacks: JetstreamCallbacks,
+): JetstreamSubscription {
   const subscription = new JetstreamSubscription({
-    url: 'wss://jetstream2.us-west.bsky.network/subscribe',
+    url: "wss://jetstream2.us-west.bsky.network/subscribe",
     wantedCollections: [COLLECTION],
     onConnectionOpen: () => callbacks.onConnect(),
     onConnectionClose: () => callbacks.onDisconnect(),
@@ -21,11 +23,11 @@ export function createJetstreamSubscription(callbacks: JetstreamCallbacks): Jets
 
   (async () => {
     for await (const event of subscription) {
-      if (event.kind !== 'commit') continue;
+      if (event.kind !== "commit") continue;
       const { commit } = event;
       if (commit.collection !== COLLECTION) continue;
 
-      if (commit.operation === 'create') {
+      if (commit.operation === "create") {
         const value = commit.record as { subject?: string; createdAt?: string };
         if (!value.subject || commit.rkey !== value.subject) continue;
 
@@ -36,7 +38,7 @@ export function createJetstreamSubscription(callbacks: JetstreamCallbacks): Jets
           uri: `at://${event.did}/${COLLECTION}/${commit.rkey}`,
           createdAt: value.createdAt ?? new Date().toISOString(),
         });
-      } else if (commit.operation === 'delete') {
+      } else if (commit.operation === "delete") {
         callbacks.onDelete(event.did, commit.rkey);
       }
     }

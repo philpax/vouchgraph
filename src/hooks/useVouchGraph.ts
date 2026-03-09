@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { VouchEdge } from '../lib/types';
-import { fetchAllVouches, type FetchProgress } from '../lib/vouch-fetcher';
-import { resolveHandles, getHandle } from '../lib/handle-resolver';
-import { createJetstreamSubscription } from '../lib/jetstream';
-import type { JetstreamSubscription } from '@atcute/jetstream';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { VouchEdge } from "../lib/types";
+import { fetchAllVouches, type FetchProgress } from "../lib/vouch-fetcher";
+import { resolveHandles, getHandle } from "../lib/handle-resolver";
+import { createJetstreamSubscription } from "../lib/jetstream";
+import type { JetstreamSubscription } from "@atcute/jetstream";
 
 export interface VouchNode {
   [key: string]: unknown;
@@ -46,24 +46,27 @@ export interface VouchGraphResult {
 }
 
 const CLUSTER_COLORS = [
-  '#6366f1', // indigo
-  '#f43f5e', // rose
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ec4899', // pink
-  '#14b8a6', // teal
-  '#ef4444', // red
-  '#84cc16', // lime
-  '#06b6d4', // cyan
-  '#f97316', // orange
+  "#6366f1", // indigo
+  "#f43f5e", // rose
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#ef4444", // red
+  "#84cc16", // lime
+  "#06b6d4", // cyan
+  "#f97316", // orange
 ];
 
 const HANDLE_RESOLVE_BATCH = 50;
 const HANDLE_RESOLVE_INTERVAL = 2000;
 
-function computeClusters(nodeIds: Set<string>, links: { source: string; target: string }[]): Map<string, number> {
+function computeClusters(
+  nodeIds: Set<string>,
+  links: { source: string; target: string }[],
+): Map<string, number> {
   const parent = new Map<string, string>();
 
   function find(x: string): string {
@@ -73,7 +76,8 @@ function computeClusters(nodeIds: Set<string>, links: { source: string; target: 
   }
 
   function union(a: string, b: string) {
-    const ra = find(a), rb = find(b);
+    const ra = find(a),
+      rb = find(b);
     if (ra !== rb) parent.set(ra, rb);
   }
 
@@ -104,7 +108,14 @@ function computeClusters(nodeIds: Set<string>, links: { source: string; target: 
   return clusterMap;
 }
 
-function makeNode(id: string, degree: number, clusterId: number, nodeSizeMin: number, nodeSizeMax: number, nodeSizeScale: number): VouchNode {
+function makeNode(
+  id: string,
+  degree: number,
+  clusterId: number,
+  nodeSizeMin: number,
+  nodeSizeMax: number,
+  nodeSizeScale: number,
+): VouchNode {
   const raw = nodeSizeMin + Math.log2(degree + 1) * nodeSizeScale;
   const size = Math.min(nodeSizeMax, Math.max(nodeSizeMin, raw));
   const handle = getHandle(id);
@@ -135,11 +146,20 @@ function buildNodesAndLinks(
 
   const nodes: VouchNode[] = [];
   for (const id of nodeSet) {
-    nodes.push(makeNode(id, degree.get(id) ?? 0, clusters.get(id) ?? 0, nodeSizeMin, nodeSizeMax, nodeSizeScale));
+    nodes.push(
+      makeNode(
+        id,
+        degree.get(id) ?? 0,
+        clusters.get(id) ?? 0,
+        nodeSizeMin,
+        nodeSizeMax,
+        nodeSizeScale,
+      ),
+    );
   }
 
   // Color each link by its source node's cluster color
-  const links: VouchLink[] = linkList.map(l => {
+  const links: VouchLink[] = linkList.map((l) => {
     const srcCluster = clusters.get(l.source) ?? 0;
     const color = CLUSTER_COLORS[srcCluster % CLUSTER_COLORS.length];
     return { source: l.source, target: l.target, color };
@@ -162,7 +182,10 @@ export function useVouchGraph(
   });
 
   // Initial data — set once after backfill
-  const [initialData, setInitialData] = useState<{ nodes: VouchNode[]; links: VouchLink[] }>({ nodes: [], links: [] });
+  const [initialData, setInitialData] = useState<{
+    nodes: VouchNode[];
+    links: VouchLink[];
+  }>({ nodes: [], links: [] });
 
   // Internal mutable state for tracking known nodes/edges
   const nodeSetRef = useRef<Set<string>>(new Set());
@@ -172,15 +195,20 @@ export function useVouchGraph(
   const subscriptionRef = useRef<JetstreamSubscription | null>(null);
 
   // Incremental update callback (set by App after Cosmograph mounts)
-  const incrementalCbRef = useRef<((update: IncrementalUpdate) => void) | null>(null);
+  const incrementalCbRef = useRef<((update: IncrementalUpdate) => void) | null>(
+    null,
+  );
 
   // Keep size params in a ref so Jetstream callback uses latest values
   const sizeParamsRef = useRef({ nodeSizeMin, nodeSizeMax, nodeSizeScale });
   sizeParamsRef.current = { nodeSizeMin, nodeSizeMax, nodeSizeScale };
 
-  const onIncremental = useCallback((cb: (update: IncrementalUpdate) => void) => {
-    incrementalCbRef.current = cb;
-  }, []);
+  const onIncremental = useCallback(
+    (cb: (update: IncrementalUpdate) => void) => {
+      incrementalCbRef.current = cb;
+    },
+    [],
+  );
 
   const scheduleHandleResolve = useCallback(() => {
     if (resolveTimerRef.current) return;
@@ -217,7 +245,7 @@ export function useVouchGraph(
     (async () => {
       try {
         const allEdges = await fetchAllVouches(
-          (progress) => setStatus(s => ({ ...s, progress })),
+          (progress) => setStatus((s) => ({ ...s, progress })),
           undefined,
           abortController.signal,
         );
@@ -241,12 +269,25 @@ export function useVouchGraph(
           linkSetRef.current.add(`${edge.from}->${edge.to}`);
         }
 
-        const linkList = allEdges.map(e => ({ source: e.from, target: e.to }));
-        const { nodeSizeMin: sm, nodeSizeMax: sM, nodeSizeScale: sS } = sizeParamsRef.current;
-        const data = buildNodesAndLinks(nodeSetRef.current, linkList, sm, sM, sS);
+        const linkList = allEdges.map((e) => ({
+          source: e.from,
+          target: e.to,
+        }));
+        const {
+          nodeSizeMin: sm,
+          nodeSizeMax: sM,
+          nodeSizeScale: sS,
+        } = sizeParamsRef.current;
+        const data = buildNodesAndLinks(
+          nodeSetRef.current,
+          linkList,
+          sm,
+          sM,
+          sS,
+        );
 
         setInitialData(data);
-        setStatus(s => ({
+        setStatus((s) => ({
           ...s,
           loading: false,
           progress: null,
@@ -268,7 +309,11 @@ export function useVouchGraph(
             linkSetRef.current.add(key);
 
             const newNodes: VouchNode[] = [];
-            const { nodeSizeMin: nMin, nodeSizeMax: nMax, nodeSizeScale: nScale } = sizeParamsRef.current;
+            const {
+              nodeSizeMin: nMin,
+              nodeSizeMax: nMax,
+              nodeSizeScale: nScale,
+            } = sizeParamsRef.current;
 
             // For new nodes from Jetstream, assign cluster 0 and minimal degree.
             // Full cluster recomputation would be expensive and disruptive.
@@ -281,13 +326,19 @@ export function useVouchGraph(
             }
 
             // New Jetstream nodes get cluster 0, so use cluster 0's color for the link
-            const newLinks: VouchLink[] = [{ source: edge.from, target: edge.to, color: CLUSTER_COLORS[0] }];
+            const newLinks: VouchLink[] = [
+              { source: edge.from, target: edge.to, color: CLUSTER_COLORS[0] },
+            ];
 
             if (incrementalCbRef.current) {
-              incrementalCbRef.current({ newNodes, newLinks, removedLinks: [] });
+              incrementalCbRef.current({
+                newNodes,
+                newLinks,
+                removedLinks: [],
+              });
             }
 
-            setStatus(s => ({
+            setStatus((s) => ({
               ...s,
               nodeCount: nodeSetRef.current.size,
               edgeCount: linkSetRef.current.size,
@@ -300,23 +351,29 @@ export function useVouchGraph(
             if (linkSetRef.current.has(key)) {
               linkSetRef.current.delete(key);
               if (incrementalCbRef.current) {
-                incrementalCbRef.current({ newNodes: [], newLinks: [], removedLinks: [[did, rkey]] });
+                incrementalCbRef.current({
+                  newNodes: [],
+                  newLinks: [],
+                  removedLinks: [[did, rkey]],
+                });
               }
-              setStatus(s => ({
+              setStatus((s) => ({
                 ...s,
                 edgeCount: linkSetRef.current.size,
               }));
             }
           },
-          onConnect: () => setStatus(s => ({ ...s, jetstreamConnected: true })),
-          onDisconnect: () => setStatus(s => ({ ...s, jetstreamConnected: false })),
+          onConnect: () =>
+            setStatus((s) => ({ ...s, jetstreamConnected: true })),
+          onDisconnect: () =>
+            setStatus((s) => ({ ...s, jetstreamConnected: false })),
         });
       } catch (err) {
         if (!abortController.signal.aborted) {
-          setStatus(s => ({
+          setStatus((s) => ({
             ...s,
             loading: false,
-            error: err instanceof Error ? err.message : 'Unknown error',
+            error: err instanceof Error ? err.message : "Unknown error",
           }));
         }
       }
@@ -328,5 +385,10 @@ export function useVouchGraph(
     };
   }, [scheduleHandleResolve]);
 
-  return { nodes: initialData.nodes, links: initialData.links, status, onIncremental };
+  return {
+    nodes: initialData.nodes,
+    links: initialData.links,
+    status,
+    onIncremental,
+  };
 }

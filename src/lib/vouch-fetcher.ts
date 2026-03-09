@@ -1,14 +1,14 @@
-import { Client, ok, simpleFetchHandler } from '@atcute/client';
-import type { ActorIdentifier } from '@atcute/lexicons';
-import { relayClient } from './api';
-import { resolvePds } from './pds-resolver';
-import type { VouchEdge } from './types';
+import { Client, ok, simpleFetchHandler } from "@atcute/client";
+import type { ActorIdentifier } from "@atcute/lexicons";
+import { relayClient } from "./api";
+import { resolvePds } from "./pds-resolver";
+import type { VouchEdge } from "./types";
 
-const COLLECTION = 'dev.atvouch.graph.vouch';
+const COLLECTION = "dev.atvouch.graph.vouch";
 const CONCURRENCY = 5;
 
 export interface FetchProgress {
-  phase: 'repos' | 'records';
+  phase: "repos" | "records";
   current: number;
   total: number;
 }
@@ -24,7 +24,7 @@ export async function fetchAllVouches(
 
   do {
     const res = await ok(
-      relayClient.get('com.atproto.sync.listReposByCollection', {
+      relayClient.get("com.atproto.sync.listReposByCollection", {
         params: { collection: COLLECTION, limit: 1000, cursor },
         signal,
       }),
@@ -33,7 +33,7 @@ export async function fetchAllVouches(
       dids.push(repo.did);
     }
     cursor = res.cursor;
-    onProgress?.({ phase: 'repos', current: dids.length, total: dids.length });
+    onProgress?.({ phase: "repos", current: dids.length, total: dids.length });
   } while (cursor);
 
   // Phase 2: Fetch records from each DID via their PDS
@@ -55,7 +55,11 @@ export async function fetchAllVouches(
         // Skip individual repo failures
       }
       completed++;
-      onProgress?.({ phase: 'records', current: completed, total: dids.length });
+      onProgress?.({
+        phase: "records",
+        current: completed,
+        total: dids.length,
+      });
     }
   });
 
@@ -63,7 +67,10 @@ export async function fetchAllVouches(
   return edges;
 }
 
-async function fetchRepoVouches(did: string, signal?: AbortSignal): Promise<VouchEdge[]> {
+async function fetchRepoVouches(
+  did: string,
+  signal?: AbortSignal,
+): Promise<VouchEdge[]> {
   const pdsUrl = await resolvePds(did);
   const pdsClient = new Client({
     handler: simpleFetchHandler({ service: pdsUrl }),
@@ -74,15 +81,20 @@ async function fetchRepoVouches(did: string, signal?: AbortSignal): Promise<Vouc
 
   do {
     const res = await ok(
-      pdsClient.get('com.atproto.repo.listRecords', {
-        params: { repo: did as ActorIdentifier, collection: COLLECTION, limit: 100, cursor },
+      pdsClient.get("com.atproto.repo.listRecords", {
+        params: {
+          repo: did as ActorIdentifier,
+          collection: COLLECTION,
+          limit: 100,
+          cursor,
+        },
         signal,
       }),
     );
 
     for (const record of res.records) {
       const value = record.value as { subject?: string; createdAt?: string };
-      const rkey = record.uri.split('/').pop()!;
+      const rkey = record.uri.split("/").pop()!;
 
       // Validate: rkey must equal subject DID
       if (!value.subject || rkey !== value.subject) continue;

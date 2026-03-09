@@ -1,5 +1,5 @@
-import { publicClient } from './api';
-import type { Did } from '@atcute/lexicons';
+import { publicClient } from "./api";
+import type { Did } from "@atcute/lexicons";
 
 const BATCH_SIZE = 25;
 const cache = new Map<string, string>();
@@ -15,7 +15,7 @@ export async function resolveHandles(dids: string[]): Promise<void> {
   for (let i = 0; i < unresolved.length; i += BATCH_SIZE) {
     const batch = unresolved.slice(i, i + BATCH_SIZE) as Did[];
     try {
-      const res = await publicClient.get('app.bsky.actor.getProfiles', {
+      const res = await publicClient.get("app.bsky.actor.getProfiles", {
         params: { actors: batch },
       });
       if (res.ok) {

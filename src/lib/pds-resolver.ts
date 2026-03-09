@@ -1,5 +1,5 @@
-import { getPdsEndpoint } from '@atcute/identity';
-import type { DidDocument } from '@atcute/identity';
+import { getPdsEndpoint } from "@atcute/identity";
+import type { DidDocument } from "@atcute/identity";
 
 const pdsCache = new Map<string, string>();
 
@@ -9,12 +9,12 @@ export async function resolvePds(did: string): Promise<string> {
 
   let doc: DidDocument;
 
-  if (did.startsWith('did:plc:')) {
+  if (did.startsWith("did:plc:")) {
     const res = await fetch(`https://plc.directory/${did}`);
     if (!res.ok) throw new Error(`Failed to resolve ${did}`);
     doc = await res.json();
-  } else if (did.startsWith('did:web:')) {
-    const host = did.slice('did:web:'.length).replaceAll(':', '/');
+  } else if (did.startsWith("did:web:")) {
+    const host = did.slice("did:web:".length).replaceAll(":", "/");
     const res = await fetch(`https://${host}/.well-known/did.json`);
     if (!res.ok) throw new Error(`Failed to resolve ${did}`);
     doc = await res.json();

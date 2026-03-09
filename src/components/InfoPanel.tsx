@@ -1,5 +1,5 @@
-import type { AppBskyActorDefs } from '@atcute/bluesky/lexicons';
-import type { VouchGraphStatus } from '../hooks/useVouchGraph';
+import type { AppBskyActorDefs } from "@atcute/bluesky/lexicons";
+import type { VouchGraphStatus } from "../hooks/useVouchGraph";
 
 interface InfoPanelProps {
   status: VouchGraphStatus;
@@ -8,12 +8,17 @@ interface InfoPanelProps {
   vouchCounts: Map<string, { inbound: number; outbound: number }>;
 }
 
-export function InfoPanel({ status, profile, profileLoading, vouchCounts }: InfoPanelProps) {
+export function InfoPanel({
+  status,
+  profile,
+  profileLoading,
+  vouchCounts,
+}: InfoPanelProps) {
   return (
     <div className="absolute top-4 right-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto">
       <div className="font-bold text-lg">vouchgraph</div>
       <div className="text-xs text-white/50 mb-2">
-        by{' '}
+        by{" "}
         <a
           href="https://bsky.app/profile/philpax.me"
           target="_blank"
@@ -24,7 +29,7 @@ export function InfoPanel({ status, profile, profileLoading, vouchCounts }: Info
         </a>
       </div>
       <div>
-        A live graph of all vouches on{' '}
+        A live graph of all vouches on{" "}
         <a
           href="https://atvouch.dev"
           target="_blank"
@@ -33,8 +38,8 @@ export function InfoPanel({ status, profile, profileLoading, vouchCounts }: Info
         >
           atvouch.dev
         </a>
-        . Proof of concept - every page load queries the relay and each PDS
-        to do a full backfill with no caching, so please be gentle.
+        . Proof of concept - every page load queries the relay and each PDS to
+        do a full backfill with no caching, so please be gentle.
       </div>
       <div className="mt-2 text-xs text-white/50">
         {status.nodeCount} nodes · {status.edgeCount} edges
@@ -48,7 +53,9 @@ export function InfoPanel({ status, profile, profileLoading, vouchCounts }: Info
           {profileLoading && !profile && (
             <div className="text-xs text-white/50">Loading profile...</div>
           )}
-          {profile && <ProfileCard profile={profile} vouchCounts={vouchCounts} />}
+          {profile && (
+            <ProfileCard profile={profile} vouchCounts={vouchCounts} />
+          )}
         </div>
       )}
     </div>
@@ -101,8 +108,12 @@ function ProfileCard({
         </div>
       )}
       <div className="flex gap-3 text-[11px] text-white/50 mt-1">
-        {profile.followersCount != null && <span>{profile.followersCount} followers</span>}
-        {profile.followsCount != null && <span>{profile.followsCount} following</span>}
+        {profile.followersCount != null && (
+          <span>{profile.followersCount} followers</span>
+        )}
+        {profile.followsCount != null && (
+          <span>{profile.followsCount} following</span>
+        )}
         {profile.postsCount != null && <span>{profile.postsCount} posts</span>}
       </div>
     </div>

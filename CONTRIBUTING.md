@@ -26,3 +26,13 @@ npm run dev
 ```
 
 Append `?debugControls` to the URL to show simulation parameter sliders.
+
+## Code quality
+
+This project uses ESLint for linting and Prettier for formatting. CI enforces both on every push and PR.
+
+```sh
+npm run lint          # check for lint errors
+npm run format        # format all files
+npm run format:check  # check formatting (used in CI)
+```

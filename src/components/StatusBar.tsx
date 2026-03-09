@@ -1,4 +1,4 @@
-import type { VouchGraphStatus } from '../hooks/useVouchGraph';
+import type { VouchGraphStatus } from "../hooks/useVouchGraph";
 
 interface StatusBarProps {
   status: VouchGraphStatus;
@@ -6,7 +6,9 @@ interface StatusBarProps {
 
 export function ProgressBar({ status }: StatusBarProps) {
   const progressPct = status.progress
-    ? Math.round((status.progress.current / Math.max(status.progress.total, 1)) * 100)
+    ? Math.round(
+        (status.progress.current / Math.max(status.progress.total, 1)) * 100,
+      )
     : 0;
 
   return (
@@ -18,7 +20,9 @@ export function ProgressBar({ status }: StatusBarProps) {
         />
       </div>
       <span>
-        {status.progress?.phase === 'repos' ? 'Discovering repos...' : `${progressPct}%`}
+        {status.progress?.phase === "repos"
+          ? "Discovering repos..."
+          : `${progressPct}%`}
       </span>
       <JetstreamDot connected={status.jetstreamConnected} />
     </div>
@@ -29,7 +33,7 @@ export function JetstreamStatus({ connected }: { connected: boolean }) {
   return (
     <div className="absolute bottom-3 right-4 flex items-center gap-1.5 text-xs text-white/50 pointer-events-none">
       <JetstreamDot connected={connected} />
-      {connected ? 'Live' : 'Disconnected'}
+      {connected ? "Live" : "Disconnected"}
     </div>
   );
 }
@@ -37,8 +41,8 @@ export function JetstreamStatus({ connected }: { connected: boolean }) {
 function JetstreamDot({ connected }: { connected: boolean }) {
   return (
     <span
-      className={`w-2 h-2 rounded-full shrink-0 ${connected ? 'bg-green-400' : 'bg-red-400'}`}
-      title={connected ? 'Jetstream connected' : 'Jetstream disconnected'}
+      className={`w-2 h-2 rounded-full shrink-0 ${connected ? "bg-green-400" : "bg-red-400"}`}
+      title={connected ? "Jetstream connected" : "Jetstream disconnected"}
     />
   );
 }
