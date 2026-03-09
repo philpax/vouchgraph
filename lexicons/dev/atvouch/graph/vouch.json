@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "dev.atvouch.graph.vouch",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "a vouch on atvouch.dev. the rkey of the record must be equal to the subject of the record, which must be a did. records that do not follow this should be considered invalid",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": { "type": "string", "format": "did" },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
