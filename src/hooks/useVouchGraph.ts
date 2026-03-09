@@ -29,22 +29,19 @@ export interface VouchGraphStatus {
   jetstreamConnected: boolean;
   nodeCount: number;
   edgeCount: number;
-}
-
-export interface IncrementalUpdate {
-  newNodes: VouchNode[];
-  newLinks: VouchLink[];
-  removedLinks: [string, string][]; // [source, target] pairs
+  pendingChanges: boolean;
 }
 
 export interface VouchGraphResult {
-  /** Initial nodes — set once when backfill completes, never changes after */
-  nodes: VouchNode[];
-  /** Initial links — set once when backfill completes, never changes after */
-  links: VouchLink[];
+  /** Frozen snapshot for Cosmograph — only changes on rebuild */
+  cosmoNodes: VouchNode[];
+  cosmoLinks: VouchLink[];
+  /** Accumulated nodes/links including Jetstream updates — for highlight system */
+  allNodes: VouchNode[];
+  allLinks: VouchLink[];
   status: VouchGraphStatus;
-  /** Register a callback for live Jetstream updates (new nodes/links) */
-  onIncremental: (cb: (update: IncrementalUpdate) => void) => void;
+  /** Promote live data into the Cosmograph snapshot */
+  rebuild: () => void;
 }
 
 const HANDLE_RESOLVE_BATCH = 50;
@@ -197,10 +194,17 @@ export function useVouchGraph(
     jetstreamConnected: false,
     nodeCount: 0,
     edgeCount: 0,
+    pendingChanges: false,
   });
 
-  // Initial data — set once after backfill
-  const [initialData, setInitialData] = useState<{
+  // Frozen snapshot for Cosmograph
+  const [cosmoData, setCosmoData] = useState<{
+    nodes: VouchNode[];
+    links: VouchLink[];
+  }>({ nodes: [], links: [] });
+
+  // Accumulated data including Jetstream updates — for highlight system
+  const [liveData, setLiveData] = useState<{
     nodes: VouchNode[];
     links: VouchLink[];
   }>({ nodes: [], links: [] });
@@ -211,23 +215,27 @@ export function useVouchGraph(
   const pendingDidsRef = useRef<Set<string>>(new Set());
   const resolveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subscriptionRef = useRef<JetstreamSubscription | null>(null);
-  const defaultHueRef = useRef<number>(0);
-
-  // Incremental update callback (set by App after Cosmograph mounts)
-  const incrementalCbRef = useRef<((update: IncrementalUpdate) => void) | null>(
-    null,
-  );
 
   // Keep size params in a ref so Jetstream callback uses latest values
   const sizeParamsRef = useRef({ nodeSizeMin, nodeSizeMax, nodeSizeScale });
   sizeParamsRef.current = { nodeSizeMin, nodeSizeMax, nodeSizeScale };
 
-  const onIncremental = useCallback(
-    (cb: (update: IncrementalUpdate) => void) => {
-      incrementalCbRef.current = cb;
-    },
-    [],
-  );
+  // Rebuild: promote live data into the Cosmograph snapshot
+  const rebuild = useCallback(() => {
+    const {
+      nodeSizeMin: sm,
+      nodeSizeMax: sM,
+      nodeSizeScale: sS,
+    } = sizeParamsRef.current;
+    const linkList = [...linkSetRef.current].map((key) => {
+      const [source, target] = key.split("->");
+      return { source, target };
+    });
+    const data = buildNodesAndLinks(nodeSetRef.current, linkList, sm, sM, sS);
+    setCosmoData(data);
+    setLiveData(data);
+    setStatus((s) => ({ ...s, pendingChanges: false }));
+  }, []);
 
   const scheduleHandleResolve = useCallback(() => {
     if (resolveTimerRef.current) return;
@@ -241,10 +249,6 @@ export function useVouchGraph(
       for (const did of batch) pending.delete(did);
 
       await resolveHandles(batch);
-
-      // Note: labels won't live-update for already-rendered nodes in Cosmograph
-      // since we can't easily update individual point labels without re-preparing data.
-      // New nodes added via Jetstream will pick up resolved handles though.
 
       if (pending.size > 0) {
         resolveTimerRef.current = setTimeout(flush, HANDLE_RESOLVE_INTERVAL);
@@ -308,7 +312,8 @@ export function useVouchGraph(
           sS,
         );
 
-        setInitialData(data);
+        setCosmoData(data);
+        setLiveData(data);
         setStatus((s) => ({
           ...s,
           loading: false,
@@ -338,16 +343,11 @@ export function useVouchGraph(
               nodeSizeScale: nScale,
             } = sizeParamsRef.current;
 
-            // For new nodes from Jetstream, assign cluster 0 and minimal degree.
-            // Full cluster recomputation would be expensive and disruptive.
-            const fallbackHue = defaultHueRef.current;
             for (const did of [edge.from, edge.to]) {
               if (!nodeSetRef.current.has(did)) {
                 nodeSetRef.current.add(did);
                 if (!getHandle(did)) pendingDidsRef.current.add(did);
-                newNodes.push(
-                  makeNode(did, 1, 0, fallbackHue, nMin, nMax, nScale),
-                );
+                newNodes.push(makeNode(did, 1, 0, 0, nMin, nMax, nScale));
               }
             }
 
@@ -355,20 +355,20 @@ export function useVouchGraph(
               {
                 source: edge.from,
                 target: edge.to,
-                color: pastelColorFromHue(fallbackHue),
+                color: pastelColorFromHue(0),
               },
             ];
 
-            if (incrementalCbRef.current) {
-              incrementalCbRef.current({
-                newNodes,
-                newLinks,
-                removedLinks: [],
-              });
-            }
+            // Update live data for highlight system
+            setLiveData((prev) => ({
+              nodes:
+                newNodes.length > 0 ? [...prev.nodes, ...newNodes] : prev.nodes,
+              links: [...prev.links, ...newLinks],
+            }));
 
             setStatus((s) => ({
               ...s,
+              pendingChanges: true,
               nodeCount: nodeSetRef.current.size,
               edgeCount: linkSetRef.current.size,
             }));
@@ -379,15 +379,17 @@ export function useVouchGraph(
             const key = `${did}->${rkey}`;
             if (linkSetRef.current.has(key)) {
               linkSetRef.current.delete(key);
-              if (incrementalCbRef.current) {
-                incrementalCbRef.current({
-                  newNodes: [],
-                  newLinks: [],
-                  removedLinks: [[did, rkey]],
-                });
-              }
+
+              setLiveData((prev) => ({
+                nodes: prev.nodes,
+                links: prev.links.filter(
+                  (l) => !(l.source === did && l.target === rkey),
+                ),
+              }));
+
               setStatus((s) => ({
                 ...s,
+                pendingChanges: true,
                 edgeCount: linkSetRef.current.size,
               }));
             }
@@ -415,9 +417,11 @@ export function useVouchGraph(
   }, [scheduleHandleResolve]);
 
   return {
-    nodes: initialData.nodes,
-    links: initialData.links,
+    cosmoNodes: cosmoData.nodes,
+    cosmoLinks: cosmoData.links,
+    allNodes: liveData.nodes,
+    allLinks: liveData.links,
     status,
-    onIncremental,
+    rebuild,
   };
 }

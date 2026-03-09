@@ -9,6 +9,7 @@ interface InfoPanelProps {
   profileLoading: boolean;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   onSelectDid: (did: string) => void;
+  onRebuild: () => void;
 }
 
 export function InfoPanel({
@@ -17,6 +18,7 @@ export function InfoPanel({
   profileLoading,
   vouchDetails,
   onSelectDid,
+  onRebuild,
 }: InfoPanelProps) {
   return (
     <div className="absolute top-4 right-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto">
@@ -33,7 +35,14 @@ export function InfoPanel({
         </a>
       </div>
       <div>
-        A live graph of all vouches on{" "}
+        A{" "}
+        <span
+          className="underline decoration-dotted cursor-help"
+          title="Most graph visualisation libraries do not deal well with having their nodes and edges change on them. Forgive me."
+        >
+          semi-live
+        </span>{" "}
+        graph of all vouches on{" "}
         <a
           href="https://atvouch.dev"
           target="_blank"
@@ -45,8 +54,18 @@ export function InfoPanel({
         . Proof of concept - every page load queries the relay and each PDS to
         do a full backfill with no caching, so please be gentle.
       </div>
-      <div className="mt-2 text-xs text-white/50">
-        {status.nodeCount} nodes · {status.edgeCount} edges
+      <div className="mt-2 text-xs text-white/50 flex items-center gap-2">
+        <span>
+          {status.nodeCount} nodes · {status.edgeCount} edges
+        </span>
+        {status.pendingChanges && (
+          <button
+            onClick={onRebuild}
+            className="text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors"
+          >
+            Update with new data
+          </button>
+        )}
       </div>
       {status.error && (
         <div className="mt-2 text-red-400 text-xs">{status.error}</div>

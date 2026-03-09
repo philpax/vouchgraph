@@ -6,11 +6,7 @@ import {
   type CosmographRef,
   type CosmographConfig,
 } from "@cosmograph/react";
-import type {
-  VouchNode,
-  VouchLink,
-  IncrementalUpdate,
-} from "../hooks/useVouchGraph";
+import type { VouchNode, VouchLink } from "../hooks/useVouchGraph";
 import type { SimParams } from "./DebugControls";
 
 const DATA_PREP_CONFIG = {
@@ -34,7 +30,6 @@ interface VouchGraphProps {
   links: VouchLink[];
   loading: boolean;
   params: SimParams;
-  onIncremental: (cb: (update: IncrementalUpdate) => void) => void;
   showLabelsFor: string[] | undefined;
   pointLabelClassName: (text: string, pointIndex: number) => string;
   pointColorByFn: (colorHex: string, index?: number) => string;
@@ -52,7 +47,6 @@ export function VouchGraph({
   links,
   loading,
   params,
-  onIncremental,
   showLabelsFor,
   pointLabelClassName,
   pointColorByFn,
@@ -81,9 +75,9 @@ export function VouchGraph({
     }
   }, [onFocusPointRef]);
 
-  // Prepare initial data once when backfill completes
+  // Prepare data when nodes/links change (initial load or rebuild)
   useEffect(() => {
-    if (loading || nodes.length === 0 || cosmographConfig) return;
+    if (loading || nodes.length === 0) return;
 
     let cancelled = false;
 
@@ -105,35 +99,7 @@ export function VouchGraph({
     return () => {
       cancelled = true;
     };
-  }, [loading, nodes, links, cosmographConfig]);
-
-  // Wire up incremental Jetstream updates
-  useEffect(() => {
-    onIncremental((update) => {
-      const cosmo = cosmographRef.current;
-      if (!cosmo) return;
-
-      if (update.newNodes.length > 0) {
-        cosmo.addPoints(
-          update.newNodes.map((n) => ({
-            id: n.id,
-            label: n.label,
-            color: n.color,
-            size: n.size,
-            cluster: n.cluster,
-          })),
-        );
-      }
-      if (update.newLinks.length > 0) {
-        cosmo.addLinks(
-          update.newLinks.map((l) => ({ source: l.source, target: l.target })),
-        );
-      }
-      if (update.removedLinks.length > 0) {
-        cosmo.removeLinksByPointIdPairs(update.removedLinks);
-      }
-    });
-  }, [onIncremental]);
+  }, [loading, nodes, links]);
 
   const handlePointClick = useCallback(
     (index: number) => {

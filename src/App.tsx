@@ -9,7 +9,7 @@ import {
   DEFAULT_SIM_PARAMS,
   type SimParams,
 } from "./components/DebugControls";
-import { ProgressBar, JetstreamStatus } from "./components/StatusBar";
+import { ProgressBar } from "./components/StatusBar";
 
 const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has(
   "debugControls",
@@ -22,11 +22,8 @@ export default function App() {
     null,
   );
 
-  const { nodes, links, status, onIncremental } = useVouchGraph(
-    params.nodeSizeMin,
-    params.nodeSizeMax,
-    params.nodeSizeScale,
-  );
+  const { cosmoNodes, cosmoLinks, allNodes, allLinks, status, rebuild } =
+    useVouchGraph(params.nodeSizeMin, params.nodeSizeMax, params.nodeSizeScale);
 
   const {
     highlight,
@@ -37,7 +34,7 @@ export default function App() {
     showLabelsFor,
     pointColorByFn,
     linkColorByFn,
-  } = useGraphHighlight(nodes, links);
+  } = useGraphHighlight(allNodes, allLinks);
 
   const {
     profile,
@@ -48,18 +45,18 @@ export default function App() {
 
   const nodeIdToIndex = useMemo(() => {
     const map = new Map<string, number>();
-    nodes.forEach((n, i) => map.set(n.id, i));
+    allNodes.forEach((n, i) => map.set(n.id, i));
     return map;
-  }, [nodes]);
+  }, [allNodes]);
 
   const selectNode = useCallback(
     (index: number) => {
       highlightNode(index);
       focusPointRef.current?.(index);
-      const node = nodes[index];
+      const node = allNodes[index];
       if (node) fetchProfile(node.id);
     },
-    [highlightNode, nodes, fetchProfile],
+    [highlightNode, allNodes, fetchProfile],
   );
 
   const handleSelectDid = useCallback(
@@ -84,11 +81,10 @@ export default function App() {
   return (
     <div className="w-screen h-screen relative bg-gray-950">
       <VouchGraph
-        nodes={nodes}
-        links={links}
+        nodes={cosmoNodes}
+        links={cosmoLinks}
         loading={status.loading}
         params={params}
-        onIncremental={onIncremental}
         showLabelsFor={showLabelsFor}
         pointLabelClassName={pointLabelClassName}
         pointColorByFn={pointColorByFn}
@@ -105,6 +101,7 @@ export default function App() {
         profileLoading={profileLoading}
         vouchDetails={vouchDetails}
         onSelectDid={handleSelectDid}
+        onRebuild={rebuild}
       />
 
       {SHOW_DEBUG_CONTROLS && !status.loading && (
@@ -116,9 +113,6 @@ export default function App() {
       )}
 
       {status.loading && <ProgressBar status={status} />}
-      {!status.loading && (
-        <JetstreamStatus connected={status.jetstreamConnected} />
-      )}
     </div>
   );
 }
