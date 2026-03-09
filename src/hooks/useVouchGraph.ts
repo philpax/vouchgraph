@@ -138,7 +138,12 @@ function buildNodesAndLinks(
     nodes.push(makeNode(id, degree.get(id) ?? 0, clusters.get(id) ?? 0, nodeSizeMin, nodeSizeMax, nodeSizeScale));
   }
 
-  const links: VouchLink[] = linkList.map(l => ({ source: l.source, target: l.target }));
+  // Color each link by its source node's cluster color
+  const links: VouchLink[] = linkList.map(l => {
+    const srcCluster = clusters.get(l.source) ?? 0;
+    const color = CLUSTER_COLORS[srcCluster % CLUSTER_COLORS.length];
+    return { source: l.source, target: l.target, color };
+  });
   return { nodes, links };
 }
 
@@ -275,7 +280,8 @@ export function useVouchGraph(
               }
             }
 
-            const newLinks: VouchLink[] = [{ source: edge.from, target: edge.to }];
+            // New Jetstream nodes get cluster 0, so use cluster 0's color for the link
+            const newLinks: VouchLink[] = [{ source: edge.from, target: edge.to, color: CLUSTER_COLORS[0] }];
 
             if (incrementalCbRef.current) {
               incrementalCbRef.current({ newNodes, newLinks, removedLinks: [] });

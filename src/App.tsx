@@ -29,6 +29,7 @@ const DATA_PREP_CONFIG = {
   links: {
     linkSourceBy: 'source',
     linkTargetsBy: ['target'],
+    linkColorBy: 'color',
     linkIncludeColumns: ['*'] as string[],
   },
 };
@@ -52,8 +53,8 @@ const DEFAULT_PARAMS: SimParams = {
   simulationLinkSpring: 0.3,
   simulationLinkDistance: 8,
   simulationDecay: 3000,
-  nodeSizeMin: 4,
-  nodeSizeMax: 20,
+  nodeSizeMin: 8,
+  nodeSizeMax: 16,
   nodeSizeScale: 3,
 };
 
@@ -61,6 +62,11 @@ export default function App() {
   const [params, setParams] = useState<SimParams>(DEFAULT_PARAMS);
   const cosmographRef = useRef<CosmographRef>(undefined);
   const [cosmographConfig, setCosmographConfig] = useState<Partial<CosmographConfig> | null>(null);
+  // Click highlight: BFS distances from clicked node
+  const [highlight, setHighlight] = useState<{
+    distances: Map<number, number>;
+    center: number;
+  } | null>(null);
 
   const { nodes, links, status, onIncremental } = useVouchGraph(
     params.nodeSizeMin,
@@ -77,9 +83,74 @@ export default function App() {
     return map;
   }, [nodes]);
 
+  // Map node id → point index, and link index → [sourcePointIndex, targetPointIndex]
+  const nodeIdToIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    nodes.forEach((n, i) => map.set(n.id, i));
+    return map;
+  }, [nodes]);
+
+  const linkEndpoints = useMemo(() => {
+    return links.map(l => [
+      nodeIdToIndex.get(l.source) ?? -1,
+      nodeIdToIndex.get(l.target) ?? -1,
+    ] as [number, number]);
+  }, [links, nodeIdToIndex]);
+
+  // All highlight dimming goes through pointColorByFn — no selectPoints greyout.
+  const hl = highlight;
+
   const pointLabelClassName = useCallback((_text: string, pointIndex: number) => {
-    return labelStyleByIndex.get(pointIndex) ?? 'background: rgba(3,7,18,0.8); color: white; padding: 2px 6px; border-radius: 4px;';
-  }, [labelStyleByIndex]);
+    const baseStyle = labelStyleByIndex.get(pointIndex) ?? 'background: rgba(3,7,18,0.8); color: white; padding: 2px 6px; border-radius: 4px;';
+    if (!hl) return baseStyle;
+    const dist = hl.distances.get(pointIndex);
+    if (dist === undefined) return baseStyle + ' opacity: 0.05;';
+    const alpha = Math.max(0.2, Math.pow(0.8, dist));
+    return baseStyle + ` opacity: ${alpha};`;
+  }, [labelStyleByIndex, hl]);
+
+  // Limit visible labels to highlighted nodes during click selection
+  const showLabelsFor = useMemo(() => {
+    if (!highlight) return undefined;
+    // Show labels for nodes up to 2 hops away
+    const ids: string[] = [];
+    for (const [idx, dist] of highlight.distances) {
+      if (dist <= 2 && idx < nodes.length) {
+        ids.push(nodes[idx].id);
+      }
+    }
+    return ids;
+  }, [highlight, nodes]);
+  const pointColorByFn = useCallback((colorHex: string, index?: number): string => {
+    if (!hl || index === undefined) return colorHex;
+    const dist = hl.distances.get(index);
+    if (dist === undefined) {
+      return hexToRgba(colorHex, 0.05, 0.15);
+    }
+    const alpha = Math.max(0.2, Math.pow(0.8, dist));
+    return hexToRgba(colorHex, alpha, 1.0);
+  }, [hl]);
+
+  // Link color: use cluster color from the color column, dim on click highlight
+  const linkColorByFn = useCallback((colorHex: string, index?: number): string => {
+    // Default: show link in its cluster color
+    const baseColor = hexToRgba(colorHex, 0.7, 0.9);
+    if (!hl || index === undefined) return baseColor;
+
+    const endpoints = linkEndpoints[index];
+    if (!endpoints) return baseColor;
+    const [srcIdx, tgtIdx] = endpoints;
+    const srcDist = hl.distances.get(srcIdx);
+    const tgtDist = hl.distances.get(tgtIdx);
+
+    // Click: fade link based on the farther endpoint's distance
+    if (srcDist === undefined || tgtDist === undefined) {
+      return hexToRgba(colorHex, 0.03, 0.15);
+    }
+    const maxDist = Math.max(srcDist, tgtDist);
+    const alpha = Math.max(0.05, 0.4 * Math.pow(0.8, maxDist));
+    return hexToRgba(colorHex, alpha, 0.8);
+  }, [hl, linkEndpoints]);
 
   // Prepare initial data once when backfill completes
   useEffect(() => {
@@ -131,6 +202,35 @@ export default function App() {
     cosmographRef.current?.start();
   }, []);
 
+  const handlePointClick = useCallback((index: number) => {
+    const cosmo = cosmographRef.current;
+    if (!cosmo) return;
+
+    // BFS to find the entire connected component with distances
+    const distances = new Map<number, number>();
+    distances.set(index, 0);
+    const queue = [index];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const currentDist = distances.get(current)!;
+      const neighbors = cosmo.getConnectedPointIndices(current) ?? [];
+      for (const n of neighbors) {
+        if (!distances.has(n)) {
+          distances.set(n, currentDist + 1);
+          queue.push(n);
+        }
+      }
+    }
+    setHighlight({ distances, center: index });
+    cosmo.setFocusedPoint(index);
+  }, []);
+
+  const handleBackgroundClick = useCallback(() => {
+    if (!highlight) return;
+    setHighlight(null);
+    cosmographRef.current?.setFocusedPoint(undefined);
+  }, [highlight]);
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#030712' }}>
       {cosmographConfig && (
@@ -140,12 +240,18 @@ export default function App() {
             style={{ width: '100%', height: '100%' }}
             {...cosmographConfig}
             showHoveredPointLabel
-            showDynamicLabels
-            showTopLabels
+            showDynamicLabels={!showLabelsFor}
+            showTopLabels={!showLabelsFor}
+            showLabelsFor={showLabelsFor}
             pointLabelColor="rgba(255,255,255,0.9)"
             pointLabelClassName={pointLabelClassName}
+            pointColorByFn={pointColorByFn}
+            pointColorStrategy={undefined}
             backgroundColor="#030712"
             linkDefaultColor="rgba(255,255,255,0.15)"
+            linkDefaultWidth={6}
+            linkColorByFn={linkColorByFn}
+            linkColorStrategy={undefined}
             linkDefaultArrows
             linkArrowsSizeScale={1.5}
             fitViewOnInit
@@ -158,6 +264,10 @@ export default function App() {
             simulationLinkDistance={params.simulationLinkDistance}
             simulationDecay={params.simulationDecay}
             pointSizeRange={[params.nodeSizeMin, params.nodeSizeMax]}
+            renderHoveredPointRing
+            hoveredPointRingColor="#ffffff"
+            onPointClick={handlePointClick}
+            onBackgroundClick={handleBackgroundClick}
             disableLogging
           />
         </CosmographProvider>
