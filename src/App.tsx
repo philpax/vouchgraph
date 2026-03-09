@@ -7,6 +7,9 @@ import {
   type CosmographConfig,
 } from '@cosmograph/react';
 import { useVouchGraph } from './hooks/useVouchGraph';
+import { publicClient } from './lib/api';
+import type { AppBskyActorDefs } from '@atcute/bluesky/lexicons';
+import type { Did } from '@atcute/lexicons';
 
 // Toggle this to show/hide the debug tuning panel
 const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has('debugControls');
@@ -68,6 +71,11 @@ export default function App() {
     center: number;
   } | null>(null);
 
+  // Selected profile info
+  const [selectedProfile, setSelectedProfile] = useState<AppBskyActorDefs.ProfileViewDetailed | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const profileAbortRef = useRef<AbortController | null>(null);
+
   const { nodes, links, status, onIncremental } = useVouchGraph(
     params.nodeSizeMin,
     params.nodeSizeMax,
@@ -91,8 +99,10 @@ export default function App() {
   }, [nodes]);
 
   // Outbound adjacency: source index → list of target indices
-  const outboundAdj = useMemo(() => {
+  // Also count inbound/outbound vouches per node ID
+  const { outboundAdj, vouchCounts } = useMemo(() => {
     const adj = new Map<number, number[]>();
+    const counts = new Map<string, { inbound: number; outbound: number }>();
     for (const l of links) {
       const srcIdx = nodeIdToIndex.get(l.source) ?? -1;
       const tgtIdx = nodeIdToIndex.get(l.target) ?? -1;
@@ -100,8 +110,14 @@ export default function App() {
       const list = adj.get(srcIdx);
       if (list) list.push(tgtIdx);
       else adj.set(srcIdx, [tgtIdx]);
+      const src = counts.get(l.source) ?? { inbound: 0, outbound: 0 };
+      src.outbound++;
+      counts.set(l.source, src);
+      const tgt = counts.get(l.target) ?? { inbound: 0, outbound: 0 };
+      tgt.inbound++;
+      counts.set(l.target, tgt);
     }
-    return adj;
+    return { outboundAdj: adj, vouchCounts: counts };
   }, [links, nodeIdToIndex]);
 
   // All highlight dimming goes through pointColorByFn — no selectPoints greyout.
@@ -213,11 +229,32 @@ export default function App() {
     }
     setHighlight({ distances, center: index });
     cosmo.setFocusedPoint(index);
-  }, [outboundAdj]);
+
+    // Fetch profile
+    const node = nodes[index];
+    if (!node) return;
+    profileAbortRef.current?.abort();
+    const abort = new AbortController();
+    profileAbortRef.current = abort;
+    setProfileLoading(true);
+    setSelectedProfile(null);
+    publicClient.get('app.bsky.actor.getProfile', {
+      params: { actor: node.id as Did },
+      signal: abort.signal,
+    }).then(res => {
+      if (!abort.signal.aborted && res.ok) {
+        setSelectedProfile(res.data);
+      }
+    }).catch(() => {}).finally(() => {
+      if (!abort.signal.aborted) setProfileLoading(false);
+    });
+  }, [outboundAdj, nodes]);
 
   const handleBackgroundClick = useCallback(() => {
     if (!highlight) return;
     setHighlight(null);
+    setSelectedProfile(null);
+    profileAbortRef.current?.abort();
     cosmographRef.current?.setFocusedPoint(undefined);
   }, [highlight]);
 
@@ -297,6 +334,63 @@ export default function App() {
         </div>
         {status.error && (
           <div style={{ marginTop: 8, color: '#f87171', fontSize: 12 }}>{status.error}</div>
+        )}
+
+        {/* Selected profile card */}
+        {(selectedProfile || profileLoading) && (
+          <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 12 }}>
+            {profileLoading && !selectedProfile && (
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Loading profile...</div>
+            )}
+            {selectedProfile && (
+              <div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+                  {selectedProfile.avatar && (
+                    <img
+                      src={selectedProfile.avatar}
+                      alt=""
+                      style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                    />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    {selectedProfile.displayName && (
+                      <div style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedProfile.displayName}
+                      </div>
+                    )}
+                    <a
+                      href={`https://bsky.app/profile/${selectedProfile.handle}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#818cf8', fontSize: 12, textDecoration: 'none' }}
+                    >
+                      @{selectedProfile.handle}
+                    </a>
+                  </div>
+                </div>
+                {selectedProfile.description && (
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: 6 }}>
+                    {selectedProfile.description}
+                  </div>
+                )}
+                {(() => {
+                  const vc = vouchCounts.get(selectedProfile.did);
+                  if (!vc) return null;
+                  return (
+                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                      <span>{vc.outbound} vouched for</span>
+                      <span>{vc.inbound} vouched by</span>
+                    </div>
+                  );
+                })()}
+                <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
+                  {selectedProfile.followersCount != null && <span>{selectedProfile.followersCount} followers</span>}
+                  {selectedProfile.followsCount != null && <span>{selectedProfile.followsCount} following</span>}
+                  {selectedProfile.postsCount != null && <span>{selectedProfile.postsCount} posts</span>}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
