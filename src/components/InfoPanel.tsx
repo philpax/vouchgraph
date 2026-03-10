@@ -24,17 +24,26 @@ export function InfoPanel({
 }: InfoPanelProps) {
   return (
     <div className="absolute top-4 right-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto">
-      <div className="font-bold text-lg">vouchgraph</div>
-      <div className="text-xs text-white/50 mb-2">
-        by{" "}
-        <a
-          href="https://bsky.app/profile/philpax.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-indigo-400 no-underline"
-        >
-          philpax.me
-        </a>
+      <div className="flex items-center gap-2.5 mb-2">
+        <img
+          src="/vouchgraph-icon.svg"
+          alt=""
+          className="w-9 h-9 shrink-0"
+        />
+        <div>
+          <div className="font-bold text-lg leading-tight">vouchgraph</div>
+          <div className="text-xs text-white/50">
+            by{" "}
+            <a
+              href="https://bsky.app/profile/philpax.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 no-underline"
+            >
+              philpax.me
+            </a>
+          </div>
+        </div>
       </div>
       <div>
         A{" "}
