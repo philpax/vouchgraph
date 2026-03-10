@@ -146,6 +146,7 @@ export function VouchGraph({
         renderHoveredPointRing
         hoveredPointRingColor="#ffffff"
         onPointClick={handlePointClick}
+        onLabelClick={handlePointClick}
         onBackgroundClick={handleBackgroundClick}
         disableLogging
       />
