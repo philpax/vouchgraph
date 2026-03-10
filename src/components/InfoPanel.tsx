@@ -113,7 +113,7 @@ function InfoContent({
   return (
     <>
       <div className="flex items-center gap-2.5 mb-2">
-        <img src="/vouchgraph-icon.svg" alt="" className="w-9 h-9 shrink-0" />
+        <img src="./vouchgraph-icon.svg" alt="" className="w-9 h-9 shrink-0" />
         <div>
           <div className="font-bold text-lg leading-tight">vouchgraph</div>
           <div className="text-xs text-white/50">
