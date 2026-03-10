@@ -130,10 +130,7 @@ function InfoContent({
           <div className="font-bold text-lg leading-tight">vouchgraph</div>
           <div className="text-xs text-white/50">
             by{" "}
-            <a
-              href="#philpax.me"
-              className="text-indigo-400 no-underline"
-            >
+            <a href="#philpax.me" className="text-indigo-400 no-underline">
               @philpax.me
             </a>
           </div>
