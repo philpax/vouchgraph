@@ -153,14 +153,17 @@ function InfoContent({
         <span>
           {status.nodeCount} nodes · {status.edgeCount} edges
         </span>
-        {status.pendingChanges && (
-          <button
-            onClick={onRebuild}
-            className="text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors"
-          >
-            Update with new data
-          </button>
-        )}
+        {status.pendingChanges &&
+          (status.rebuilding ? (
+            <span className="text-white/30">Rebuilding...</span>
+          ) : (
+            <button
+              onClick={onRebuild}
+              className="text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors"
+            >
+              Update with new data
+            </button>
+          ))}
       </div>
       {status.error && (
         <div className="mt-2 text-red-400 text-xs">{status.error}</div>

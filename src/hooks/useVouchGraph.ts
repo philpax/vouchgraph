@@ -24,6 +24,7 @@ export interface VouchLink {
 
 export interface VouchGraphStatus {
   loading: boolean;
+  rebuilding: boolean;
   error: string | null;
   progress: FetchProgress | null;
   jetstreamConnected: boolean;
@@ -189,6 +190,7 @@ export function useVouchGraph(
 ): VouchGraphResult {
   const [status, setStatus] = useState<VouchGraphStatus>({
     loading: true,
+    rebuilding: false,
     error: null,
     progress: null,
     jetstreamConnected: false,
@@ -197,14 +199,8 @@ export function useVouchGraph(
     pendingChanges: false,
   });
 
-  // Frozen snapshot for Cosmograph
-  const [cosmoData, setCosmoData] = useState<{
-    nodes: VouchNode[];
-    links: VouchLink[];
-  }>({ nodes: [], links: [] });
-
-  // Accumulated data including Jetstream updates — for highlight system
-  const [liveData, setLiveData] = useState<{
+  // Graph data — only changes on initial load or rebuild
+  const [graphData, setGraphData] = useState<{
     nodes: VouchNode[];
     links: VouchLink[];
   }>({ nodes: [], links: [] });
@@ -220,8 +216,23 @@ export function useVouchGraph(
   const sizeParamsRef = useRef({ nodeSizeMin, nodeSizeMax, nodeSizeScale });
   sizeParamsRef.current = { nodeSizeMin, nodeSizeMax, nodeSizeScale };
 
-  // Rebuild: promote live data into the Cosmograph snapshot
-  const rebuild = useCallback(() => {
+  // Rebuild: resolve all unresolved handles, then promote live data into the Cosmograph snapshot
+  const rebuild = useCallback(async () => {
+    setStatus((s) => ({ ...s, rebuilding: true }));
+
+    // Cancel any pending timer
+    if (resolveTimerRef.current) {
+      clearTimeout(resolveTimerRef.current);
+      resolveTimerRef.current = null;
+    }
+    pendingDidsRef.current.clear();
+
+    // Resolve every DID in the graph that doesn't have a handle yet
+    const unresolved = [...nodeSetRef.current].filter((d) => !getHandle(d));
+    if (unresolved.length > 0) {
+      await resolveHandles(unresolved);
+    }
+
     const {
       nodeSizeMin: sm,
       nodeSizeMax: sM,
@@ -232,9 +243,8 @@ export function useVouchGraph(
       return { source, target };
     });
     const data = buildNodesAndLinks(nodeSetRef.current, linkList, sm, sM, sS);
-    setCosmoData(data);
-    setLiveData(data);
-    setStatus((s) => ({ ...s, pendingChanges: false }));
+    setGraphData(data);
+    setStatus((s) => ({ ...s, pendingChanges: false, rebuilding: false }));
   }, []);
 
   const scheduleHandleResolve = useCallback(() => {
@@ -312,8 +322,7 @@ export function useVouchGraph(
           sS,
         );
 
-        setCosmoData(data);
-        setLiveData(data);
+        setGraphData(data);
         setStatus((s) => ({
           ...s,
           loading: false,
@@ -336,35 +345,12 @@ export function useVouchGraph(
             if (linkSetRef.current.has(key)) return;
             linkSetRef.current.add(key);
 
-            const newNodes: VouchNode[] = [];
-            const {
-              nodeSizeMin: nMin,
-              nodeSizeMax: nMax,
-              nodeSizeScale: nScale,
-            } = sizeParamsRef.current;
-
             for (const did of [edge.from, edge.to]) {
               if (!nodeSetRef.current.has(did)) {
                 nodeSetRef.current.add(did);
                 if (!getHandle(did)) pendingDidsRef.current.add(did);
-                newNodes.push(makeNode(did, 1, 0, 0, nMin, nMax, nScale));
               }
             }
-
-            const newLinks: VouchLink[] = [
-              {
-                source: edge.from,
-                target: edge.to,
-                color: pastelColorFromHue(0),
-              },
-            ];
-
-            // Update live data for highlight system
-            setLiveData((prev) => ({
-              nodes:
-                newNodes.length > 0 ? [...prev.nodes, ...newNodes] : prev.nodes,
-              links: [...prev.links, ...newLinks],
-            }));
 
             setStatus((s) => ({
               ...s,
@@ -379,14 +365,6 @@ export function useVouchGraph(
             const key = `${did}->${rkey}`;
             if (linkSetRef.current.has(key)) {
               linkSetRef.current.delete(key);
-
-              setLiveData((prev) => ({
-                nodes: prev.nodes,
-                links: prev.links.filter(
-                  (l) => !(l.source === did && l.target === rkey),
-                ),
-              }));
-
               setStatus((s) => ({
                 ...s,
                 pendingChanges: true,
@@ -417,10 +395,10 @@ export function useVouchGraph(
   }, [scheduleHandleResolve]);
 
   return {
-    cosmoNodes: cosmoData.nodes,
-    cosmoLinks: cosmoData.links,
-    allNodes: liveData.nodes,
-    allLinks: liveData.links,
+    cosmoNodes: graphData.nodes,
+    cosmoLinks: graphData.links,
+    allNodes: graphData.nodes,
+    allLinks: graphData.links,
     status,
     rebuild,
   };
