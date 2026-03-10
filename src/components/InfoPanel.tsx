@@ -29,13 +29,15 @@ export function InfoPanel({
   const [mobileTab, setMobileTab] = useState<MobileTab>("info");
   const prevProfileDid = useRef<string | null>(null);
 
-  // Auto-switch to "selected" tab when a new user is selected
+  // Auto-switch tabs based on selection state
   useEffect(() => {
     if (profile && profile.did !== prevProfileDid.current) {
       setMobileTab("selected");
+    } else if (!profile && !profileLoading) {
+      setMobileTab("info");
     }
     prevProfileDid.current = profile?.did ?? null;
-  }, [profile]);
+  }, [profile, profileLoading]);
 
   return (
     <>
@@ -124,7 +126,7 @@ function InfoContent({
               rel="noopener noreferrer"
               className="text-indigo-400 no-underline"
             >
-              philpax.me
+              @philpax.me
             </a>
           </div>
         </div>
@@ -147,7 +149,7 @@ function InfoContent({
           atvouch.dev
         </a>
         . Proof of concept - every page load queries the relay and each PDS to
-        do a full backfill with no caching, so please be gentle.
+        do a full backfill with no caching, so please do be gentle.
       </div>
       <div className="mt-2 text-xs text-white/50 flex items-center gap-2">
         <span>
