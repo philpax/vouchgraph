@@ -111,7 +111,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="w-screen h-screen flex flex-col md:block bg-gray-950">
+    <div className="w-screen h-dvh flex flex-col md:block bg-gray-950 overflow-hidden">
       <div className="flex-1 min-h-0 relative md:w-full md:h-full">
         <VouchGraph
           nodes={cosmoNodes}

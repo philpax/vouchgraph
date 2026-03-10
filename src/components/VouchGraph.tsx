@@ -129,6 +129,7 @@ export function VouchGraph({
         pointColorByFn={pointColorByFn}
         linkColorByFn={linkColorByFn}
         backgroundColor="#030712"
+        spaceSize={4096}
         linkDefaultColor="rgba(255,255,255,0.6)"
         linkDefaultWidth={6}
         linkDefaultArrows

@@ -58,7 +58,7 @@ export function InfoPanel({
       </div>
 
       {/* Mobile: bottom panel */}
-      <div className="md:hidden flex flex-col bg-gray-950/95 backdrop-blur text-white/85 text-sm leading-normal border-t border-white/10 pointer-events-auto">
+      <div className="md:hidden flex flex-col shrink-0 overflow-hidden bg-gray-950/95 backdrop-blur text-white/85 text-sm leading-normal border-t border-white/10 pointer-events-auto">
         {!status.loading && (
           <div className="px-4 pt-3 pb-1">
             <SearchBar nodeDids={nodeDids} onSelect={onSelectDid} />
