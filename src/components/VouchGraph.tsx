@@ -23,6 +23,8 @@ interface VouchGraphProps {
   nodeColorFn: (node: VouchNode) => string;
   linkColorFn: (link: VouchLink) => string;
   onNodeClick: (did: string) => void;
+  onNodeHover?: (did: string) => void;
+  onNodeHoverEnd?: () => void;
   onBackgroundClick: () => void;
   onReheatRef?: React.MutableRefObject<(() => void) | null>;
   onFocusNodeRef?: React.MutableRefObject<
@@ -54,6 +56,8 @@ function VouchGraphInner({
   nodeColorFn,
   linkColorFn,
   onNodeClick,
+  onNodeHover,
+  onNodeHoverEnd,
   onBackgroundClick,
   onReheatRef,
   onFocusNodeRef,
@@ -98,6 +102,17 @@ function VouchGraphInner({
     [onNodeClick],
   );
 
+  const handleNodeMouseOver = useCallback(
+    (node: VouchNode) => {
+      onNodeHover?.(node.id);
+    },
+    [onNodeHover],
+  );
+
+  const handleNodeMouseOut = useCallback(() => {
+    onNodeHoverEnd?.();
+  }, [onNodeHoverEnd]);
+
   return (
     <Cosmograph
       ref={cosmographRef}
@@ -128,6 +143,8 @@ function VouchGraphInner({
       simulationDecay={params.simulationDecay}
       onClick={handleClick}
       onLabelClick={handleLabelClick}
+      onNodeMouseOver={handleNodeMouseOver}
+      onNodeMouseOut={handleNodeMouseOut}
     />
   );
 }

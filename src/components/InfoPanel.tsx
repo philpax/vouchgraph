@@ -19,6 +19,8 @@ interface InfoPanelProps {
   onSelectDid: (did: string) => void;
   onRebuild: () => void;
   profileCache: ReturnType<typeof useProfileCache>;
+  onPreviewDid?: (did: string) => void;
+  onClearPreview?: () => void;
 }
 
 export function InfoPanel({
@@ -30,6 +32,8 @@ export function InfoPanel({
   onSelectDid,
   onRebuild,
   profileCache,
+  onPreviewDid,
+  onClearPreview,
 }: InfoPanelProps) {
   const hasSelection = !!profile || profileLoading;
   const [mobileTabManual, setMobileTabManual] = useState<MobileTab | null>(
@@ -65,6 +69,8 @@ export function InfoPanel({
           onSelectDid={onSelectDid}
           profileCache={profileCache}
           panelRef={panelRef}
+          onPreviewDid={onPreviewDid}
+          onClearPreview={onClearPreview}
         />
       </div>
 
@@ -107,6 +113,8 @@ export function InfoPanel({
               vouchDetails={vouchDetails}
               onSelectDid={onSelectDid}
               profileCache={profileCache}
+              onPreviewDid={onPreviewDid}
+              onClearPreview={onClearPreview}
             />
           )}
         </div>
@@ -186,6 +194,8 @@ function DesktopUserContent({
   onSelectDid,
   profileCache,
   panelRef,
+  onPreviewDid,
+  onClearPreview,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed | null;
   profileLoading: boolean;
@@ -193,6 +203,8 @@ function DesktopUserContent({
   onSelectDid: (did: string) => void;
   profileCache: ReturnType<typeof useProfileCache>;
   panelRef: React.RefObject<HTMLDivElement | null>;
+  onPreviewDid?: (did: string) => void;
+  onClearPreview?: () => void;
 }) {
   if (!profile && !profileLoading) return null;
 
@@ -208,6 +220,8 @@ function DesktopUserContent({
           onSelectDid={onSelectDid}
           profileCache={profileCache}
           panelRef={panelRef}
+          onPreviewDid={onPreviewDid}
+          onClearPreview={onClearPreview}
         />
       )}
     </div>
@@ -221,12 +235,16 @@ function MobileSelectedContent({
   vouchDetails,
   onSelectDid,
   profileCache,
+  onPreviewDid,
+  onClearPreview,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed | null;
   profileLoading: boolean;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   onSelectDid: (did: string) => void;
   profileCache: ReturnType<typeof useProfileCache>;
+  onPreviewDid?: (did: string) => void;
+  onClearPreview?: () => void;
 }) {
   const [subTab, setSubTab] = useState<MobileSelectedSubTab>("profile");
 
@@ -288,6 +306,8 @@ function MobileSelectedContent({
           dids={inbound}
           onSelect={onSelectDid}
           profileCache={profileCache}
+          onPreviewDid={onPreviewDid}
+          onClearPreview={onClearPreview}
         />
       )}
       {subTab === "outbound" && (
@@ -295,6 +315,8 @@ function MobileSelectedContent({
           dids={outbound}
           onSelect={onSelectDid}
           profileCache={profileCache}
+          onPreviewDid={onPreviewDid}
+          onClearPreview={onClearPreview}
         />
       )}
     </div>
@@ -308,12 +330,16 @@ function DesktopProfileCard({
   onSelectDid,
   profileCache,
   panelRef,
+  onPreviewDid,
+  onClearPreview,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   onSelectDid: (did: string) => void;
   profileCache: ReturnType<typeof useProfileCache>;
   panelRef: React.RefObject<HTMLDivElement | null>;
+  onPreviewDid?: (did: string) => void;
+  onClearPreview?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<VouchTab>("inbound");
   const vd = vouchDetails.get(profile.did);
@@ -350,6 +376,8 @@ function DesktopProfileCard({
         onSelect={onSelectDid}
         profileCache={profileCache}
         panelRef={panelRef}
+        onPreviewDid={onPreviewDid}
+        onClearPreview={onClearPreview}
       />
     </div>
   );
@@ -445,11 +473,15 @@ function DidList({
   onSelect,
   profileCache,
   panelRef,
+  onPreviewDid,
+  onClearPreview,
 }: {
   dids: string[];
   onSelect: (did: string) => void;
   profileCache: ReturnType<typeof useProfileCache>;
   panelRef?: React.RefObject<HTMLDivElement | null>;
+  onPreviewDid?: (did: string) => void;
+  onClearPreview?: () => void;
 }) {
   const [activeDid, setActiveDid] = useState<string | null>(null);
   const [hoverProfile, setHoverProfile] =
@@ -459,6 +491,7 @@ function DidList({
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const coyoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewCoyoteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const popupRef = useRef<HTMLDivElement>(null);
@@ -595,6 +628,7 @@ function DidList({
     return () => {
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
       if (coyoteTimerRef.current) clearTimeout(coyoteTimerRef.current);
+      if (previewCoyoteRef.current) clearTimeout(previewCoyoteRef.current);
       abortRef.current?.abort();
     };
   }, []);
@@ -612,8 +646,24 @@ function DidList({
                 else buttonRefs.current.delete(did);
               }}
               onClick={() => onSelect(did)}
-              onMouseEnter={() => handleMouseEnter(did)}
-              onMouseLeave={handleMouseLeave}
+              onMouseEnter={() => {
+                handleMouseEnter(did);
+                if (previewCoyoteRef.current) {
+                  clearTimeout(previewCoyoteRef.current);
+                  previewCoyoteRef.current = null;
+                }
+                onPreviewDid?.(did);
+              }}
+              onMouseLeave={() => {
+                handleMouseLeave();
+                if (previewCoyoteRef.current) {
+                  clearTimeout(previewCoyoteRef.current);
+                }
+                previewCoyoteRef.current = setTimeout(() => {
+                  previewCoyoteRef.current = null;
+                  onClearPreview?.();
+                }, 250);
+              }}
               className="text-indigo-400 hover:bg-white/10 rounded cursor-pointer truncate"
             >
               @{getHandle(did) ?? did}

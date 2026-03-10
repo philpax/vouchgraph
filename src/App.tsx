@@ -44,10 +44,14 @@ export default function App() {
 
   const nodeDids = useMemo(() => allNodes.map((n) => n.id), [allNodes]);
 
+  // Track the currently selected (clicked) DID so preview can restore it
+  const selectedDidRef = useRef<string | undefined>(undefined);
+
   const selectNode = useCallback(
     (did: string) => {
       const index = nodeIdToIndex.get(did);
       if (index === undefined) return;
+      selectedDidRef.current = did;
       highlightNode(index);
       focusNodeRef.current?.(did);
       const node = allNodes[index];
@@ -60,8 +64,33 @@ export default function App() {
     [highlightNode, allNodes, fetchProfile, nodeIdToIndex],
   );
 
+  const previewNode = useCallback(
+    (did: string) => {
+      const index = nodeIdToIndex.get(did);
+      if (index === undefined) return;
+      highlightNode(index);
+      focusNodeRef.current?.(did);
+    },
+    [highlightNode, nodeIdToIndex],
+  );
+
+  const clearPreview = useCallback(() => {
+    const sel = selectedDidRef.current;
+    if (sel) {
+      const index = nodeIdToIndex.get(sel);
+      if (index !== undefined) {
+        highlightNode(index);
+        focusNodeRef.current?.(sel);
+        return;
+      }
+    }
+    clearHighlight();
+    focusNodeRef.current?.(undefined);
+  }, [highlightNode, clearHighlight, nodeIdToIndex]);
+
   const handleBackgroundClick = useCallback(() => {
     if (!highlight) return;
+    selectedDidRef.current = undefined;
     clearHighlight();
     clearProfile();
     focusNodeRef.current?.(undefined);
@@ -112,6 +141,8 @@ export default function App() {
           nodeColorFn={nodeColorFn}
           linkColorFn={linkColorFn}
           onNodeClick={selectNode}
+          onNodeHover={previewNode}
+          onNodeHoverEnd={clearPreview}
           onFocusNodeRef={focusNodeRef}
           onBackgroundClick={handleBackgroundClick}
           onReheatRef={reheatRef}
@@ -137,6 +168,8 @@ export default function App() {
         onSelectDid={selectNode}
         onRebuild={rebuild}
         profileCache={profileCache}
+        onPreviewDid={previewNode}
+        onClearPreview={clearPreview}
       />
     </div>
   );
