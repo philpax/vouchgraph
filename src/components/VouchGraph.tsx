@@ -109,7 +109,7 @@ function VouchGraphInner({
       nodeSize={(n: VouchNode) => n.size}
       linkWidth={1}
       linkArrows={true}
-      linkArrowsSizeScale={1.5}
+      linkArrowsSizeScale={0.5}
       nodeLabelAccessor={(n: VouchNode) => n.label}
       nodeLabelColor="rgba(255,255,255,0.9)"
       showDynamicLabels={!showLabelsFor}
