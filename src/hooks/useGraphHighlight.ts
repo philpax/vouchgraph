@@ -21,7 +21,10 @@ function directionColor(hex: string, dist: number): string {
   return hexToRgba(hex, Math.pow(OPACITY_DECAY, dist - 1), 1.0);
 }
 
-function bfs(start: number, adjacency: Map<number, number[]>): Map<number, number> {
+function bfs(
+  start: number,
+  adjacency: Map<number, number[]>,
+): Map<number, number> {
   const dist = new Map<number, number>();
   dist.set(start, 0);
   const queue = [start];
@@ -123,7 +126,8 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     if (!highlight) return undefined;
     const result: VouchNode[] = [];
     for (const [idx, dist] of highlight.outboundDist) {
-      if (dist <= LABEL_DISTANCE_THRESHOLD && idx < nodes.length) result.push(nodes[idx]);
+      if (dist <= LABEL_DISTANCE_THRESHOLD && idx < nodes.length)
+        result.push(nodes[idx]);
     }
     for (const [idx, dist] of highlight.inboundDist) {
       if (dist <= LABEL_DISTANCE_THRESHOLD && idx < nodes.length) {
@@ -151,8 +155,7 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
 
   const linkColorFn = useCallback(
     (link: VouchLink): string => {
-      const defaultColor =
-        link.color ?? "rgba(255,255,255,0.6)";
+      const defaultColor = link.color ?? "rgba(255,255,255,0.6)";
       if (!highlight) return defaultColor;
       const srcIdx = nodeIdToIndex.get(link.source);
       const tgtIdx = nodeIdToIndex.get(link.target);

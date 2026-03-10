@@ -186,7 +186,9 @@ function useVouchLabelPatch(
           } else {
             const dist = Math.min(outDist ?? Infinity, inDist ?? Infinity);
             if (dist > 1) {
-              parts.push(`opacity: ${Math.max(0.2, Math.pow(LABEL_OPACITY_DECAY, dist - 1))};`);
+              parts.push(
+                `opacity: ${Math.max(0.2, Math.pow(LABEL_OPACITY_DECAY, dist - 1))};`,
+              );
             }
           }
         }

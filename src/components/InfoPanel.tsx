@@ -470,7 +470,9 @@ const COYOTE_TIME = 600;
 /** Grace period before clearing the graph preview highlight. */
 const PREVIEW_COYOTE_TIME = 250;
 
-function clearTimer(ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) {
+function clearTimer(
+  ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+) {
   if (ref.current) {
     clearTimeout(ref.current);
     ref.current = null;
