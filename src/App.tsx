@@ -110,21 +110,33 @@ export default function App() {
   }, []);
 
   return (
-    <div className="w-screen h-screen relative bg-gray-950">
-      <VouchGraph
-        nodes={cosmoNodes}
-        links={cosmoLinks}
-        loading={status.loading}
-        params={params}
-        showLabelsFor={showLabelsFor}
-        pointLabelClassName={pointLabelClassName}
-        pointColorByFn={pointColorByFn}
-        linkColorByFn={linkColorByFn}
-        onPointClick={selectNode}
-        onFocusPointRef={focusPointRef}
-        onBackgroundClick={handleBackgroundClick}
-        onReheatRef={reheatRef}
-      />
+    <div className="w-screen h-screen flex flex-col md:block bg-gray-950">
+      <div className="flex-1 min-h-0 relative md:w-full md:h-full">
+        <VouchGraph
+          nodes={cosmoNodes}
+          links={cosmoLinks}
+          loading={status.loading}
+          params={params}
+          showLabelsFor={showLabelsFor}
+          pointLabelClassName={pointLabelClassName}
+          pointColorByFn={pointColorByFn}
+          linkColorByFn={linkColorByFn}
+          onPointClick={selectNode}
+          onFocusPointRef={focusPointRef}
+          onBackgroundClick={handleBackgroundClick}
+          onReheatRef={reheatRef}
+        />
+
+        {SHOW_DEBUG_CONTROLS && !status.loading && (
+          <DebugControls
+            params={params}
+            onParamsChange={setParams}
+            onReheat={handleReheat}
+          />
+        )}
+
+        {status.loading && <ProgressBar status={status} />}
+      </div>
 
       <InfoPanel
         status={status}
@@ -135,16 +147,6 @@ export default function App() {
         onSelectDid={handleSelectDid}
         onRebuild={rebuild}
       />
-
-      {SHOW_DEBUG_CONTROLS && !status.loading && (
-        <DebugControls
-          params={params}
-          onParamsChange={setParams}
-          onReheat={handleReheat}
-        />
-      )}
-
-      {status.loading && <ProgressBar status={status} />}
     </div>
   );
 }
