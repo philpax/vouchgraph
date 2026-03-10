@@ -31,6 +31,7 @@ export function InfoPanel({
     null,
   );
   const [prevHasSelection, setPrevHasSelection] = useState(hasSelection);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Reset manual override when selection state changes
   if (hasSelection !== prevHasSelection) {
@@ -44,7 +45,10 @@ export function InfoPanel({
   return (
     <>
       {/* Desktop: overlay panel */}
-      <div className="hidden md:block absolute top-4 right-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto">
+      <div
+        ref={panelRef}
+        className="hidden md:block absolute top-4 left-4 bg-gray-950/85 backdrop-blur rounded-xl px-5 py-4 max-w-80 text-white/85 text-sm leading-normal border border-white/10 pointer-events-auto"
+      >
         <InfoContent status={status} onRebuild={onRebuild} />
         {!status.loading && (
           <SearchBar nodeDids={nodeDids} onSelect={onSelectDid} />
