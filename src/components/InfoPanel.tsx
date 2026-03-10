@@ -1,7 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { AppBskyActorDefs } from "@atcute/bluesky";
 import type { VouchGraphStatus } from "../hooks/useVouchGraph";
+import type { useProfileCache } from "../hooks/useProfileCache";
 import { getHandle } from "../lib/handle-resolver";
+import { ProfileCard } from "./ProfileCard";
 
 type MobileTab = "info" | "selected";
 type MobileSelectedSubTab = "profile" | "inbound" | "outbound";
@@ -15,6 +18,7 @@ interface InfoPanelProps {
   nodeDids: string[];
   onSelectDid: (did: string) => void;
   onRebuild: () => void;
+  profileCache: ReturnType<typeof useProfileCache>;
 }
 
 export function InfoPanel({
@@ -25,6 +29,7 @@ export function InfoPanel({
   nodeDids,
   onSelectDid,
   onRebuild,
+  profileCache,
 }: InfoPanelProps) {
   const hasSelection = !!profile || profileLoading;
   const [mobileTabManual, setMobileTabManual] = useState<MobileTab | null>(
@@ -58,6 +63,8 @@ export function InfoPanel({
           profileLoading={profileLoading}
           vouchDetails={vouchDetails}
           onSelectDid={onSelectDid}
+          profileCache={profileCache}
+          panelRef={panelRef}
         />
       </div>
 
@@ -99,6 +106,7 @@ export function InfoPanel({
               profileLoading={profileLoading}
               vouchDetails={vouchDetails}
               onSelectDid={onSelectDid}
+              profileCache={profileCache}
             />
           )}
         </div>
@@ -181,11 +189,15 @@ function DesktopUserContent({
   profileLoading,
   vouchDetails,
   onSelectDid,
+  profileCache,
+  panelRef,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed | null;
   profileLoading: boolean;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   onSelectDid: (did: string) => void;
+  profileCache: ReturnType<typeof useProfileCache>;
+  panelRef: React.RefObject<HTMLDivElement | null>;
 }) {
   if (!profile && !profileLoading) return null;
 
@@ -199,6 +211,8 @@ function DesktopUserContent({
           profile={profile}
           vouchDetails={vouchDetails}
           onSelectDid={onSelectDid}
+          profileCache={profileCache}
+          panelRef={panelRef}
         />
       )}
     </div>
@@ -211,11 +225,13 @@ function MobileSelectedContent({
   profileLoading,
   vouchDetails,
   onSelectDid,
+  profileCache,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed | null;
   profileLoading: boolean;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   onSelectDid: (did: string) => void;
+  profileCache: ReturnType<typeof useProfileCache>;
 }) {
   const [subTab, setSubTab] = useState<MobileSelectedSubTab>("profile");
 
@@ -271,63 +287,21 @@ function MobileSelectedContent({
           Vouching for ({outbound.length})
         </button>
       </div>
-      {subTab === "profile" && <ProfileInfo profile={profile} />}
+      {subTab === "profile" && <ProfileCard profile={profile} />}
       {subTab === "inbound" && (
-        <DidList dids={inbound} onSelect={onSelectDid} />
+        <DidList
+          dids={inbound}
+          onSelect={onSelectDid}
+          profileCache={profileCache}
+        />
       )}
       {subTab === "outbound" && (
-        <DidList dids={outbound} onSelect={onSelectDid} />
+        <DidList
+          dids={outbound}
+          onSelect={onSelectDid}
+          profileCache={profileCache}
+        />
       )}
-    </div>
-  );
-}
-
-/** Profile info without vouch lists — used in mobile sub-tabs and desktop */
-function ProfileInfo({
-  profile,
-}: {
-  profile: AppBskyActorDefs.ProfileViewDetailed;
-}) {
-  return (
-    <div>
-      <div className="flex gap-2.5 items-center mb-2">
-        {profile.avatar && (
-          <img
-            src={profile.avatar}
-            alt=""
-            className="w-12 h-12 rounded-full object-cover shrink-0"
-          />
-        )}
-        <div className="min-w-0">
-          {profile.displayName && (
-            <div className="font-bold text-base overflow-hidden text-ellipsis whitespace-nowrap">
-              {profile.displayName}
-            </div>
-          )}
-          <a
-            href={`https://bsky.app/profile/${profile.handle}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-indigo-400 text-sm no-underline"
-          >
-            @{profile.handle}
-          </a>
-        </div>
-      </div>
-      {profile.description && (
-        <div className="text-sm text-white/70 whitespace-pre-wrap break-words mb-1.5">
-          {profile.description}
-        </div>
-      )}
-      <div className="flex gap-3 text-xs text-white/50">
-        {profile.followersCount != null && (
-          <span>{profile.followersCount} followers</span>
-        )}
-        {profile.followsCount != null && (
-          <span>{profile.followsCount} following</span>
-        )}
-        {profile.postsCount != null && <span>{profile.postsCount} posts</span>}
-      </div>
     </div>
   );
 }
@@ -337,10 +311,14 @@ function DesktopProfileCard({
   profile,
   vouchDetails,
   onSelectDid,
+  profileCache,
+  panelRef,
 }: {
   profile: AppBskyActorDefs.ProfileViewDetailed;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   onSelectDid: (did: string) => void;
+  profileCache: ReturnType<typeof useProfileCache>;
+  panelRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const [activeTab, setActiveTab] = useState<VouchTab>("inbound");
   const vd = vouchDetails.get(profile.did);
@@ -349,7 +327,7 @@ function DesktopProfileCard({
 
   return (
     <div>
-      <ProfileInfo profile={profile} />
+      <ProfileCard profile={profile} />
       <div className="flex text-xs mt-2 border-b border-white/10">
         <button
           onClick={() => setActiveTab("inbound")}
@@ -375,6 +353,8 @@ function DesktopProfileCard({
       <DidList
         dids={activeTab === "inbound" ? inbound : outbound}
         onSelect={onSelectDid}
+        profileCache={profileCache}
+        panelRef={panelRef}
       />
     </div>
   );
@@ -459,25 +439,213 @@ function SearchBar({
   );
 }
 
+/** How long the cursor must hover over a handle before fetching its profile. */
+const HOVER_DELAY = 400;
+/** Grace period after the cursor leaves the handle or popup before dismissing,
+ *  allowing the user to move between the two without the popup disappearing. */
+const COYOTE_TIME = 600;
+
 function DidList({
   dids,
   onSelect,
+  profileCache,
+  panelRef,
 }: {
   dids: string[];
   onSelect: (did: string) => void;
+  profileCache: ReturnType<typeof useProfileCache>;
+  panelRef?: React.RefObject<HTMLDivElement | null>;
 }) {
+  const [activeDid, setActiveDid] = useState<string | null>(null);
+  const [hoverProfile, setHoverProfile] =
+    useState<AppBskyActorDefs.ProfileViewDetailed | null>(null);
+  const [hoverLoading, setHoverLoading] = useState(false);
+  const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
+
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coyoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const popupRef = useRef<HTMLDivElement>(null);
+  const onPopupRef = useRef(false);
+  const onButtonRef = useRef<string | null>(null);
+
+  const dismiss = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (coyoteTimerRef.current) {
+      clearTimeout(coyoteTimerRef.current);
+      coyoteTimerRef.current = null;
+    }
+    abortRef.current?.abort();
+    abortRef.current = null;
+    onPopupRef.current = false;
+    onButtonRef.current = null;
+    setActiveDid(null);
+    setHoverProfile(null);
+    setHoverLoading(false);
+  }, []);
+
+  const startCoyoteTimer = useCallback(() => {
+    if (coyoteTimerRef.current) clearTimeout(coyoteTimerRef.current);
+    coyoteTimerRef.current = setTimeout(() => {
+      coyoteTimerRef.current = null;
+      if (!onPopupRef.current && !onButtonRef.current) {
+        dismiss();
+      }
+    }, COYOTE_TIME);
+  }, [dismiss]);
+
+  const showPopup = useCallback(
+    (did: string) => {
+      if (coyoteTimerRef.current) {
+        clearTimeout(coyoteTimerRef.current);
+        coyoteTimerRef.current = null;
+      }
+
+      const el = buttonRefs.current.get(did);
+      const panelEl = panelRef?.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const panelRight = panelEl
+          ? panelEl.getBoundingClientRect().right
+          : rect.right;
+        setPopupPos({ x: panelRight + 8, y: rect.top });
+      }
+
+      setActiveDid(did);
+
+      const cached = profileCache.get(did);
+      if (cached) {
+        setHoverProfile(cached);
+        setHoverLoading(false);
+        return;
+      }
+
+      setHoverProfile(null);
+      setHoverLoading(true);
+
+      abortRef.current?.abort();
+      const abort = new AbortController();
+      abortRef.current = abort;
+
+      profileCache.fetch(did, abort.signal).then((profile) => {
+        if (!abort.signal.aborted) {
+          setHoverProfile(profile);
+          setHoverLoading(false);
+        }
+      });
+    },
+    [profileCache, panelRef],
+  );
+
+  const handleMouseEnter = useCallback(
+    (did: string) => {
+      onButtonRef.current = did;
+
+      // If already showing this did, cancel any pending dismiss
+      if (activeDid === did) {
+        if (coyoteTimerRef.current) {
+          clearTimeout(coyoteTimerRef.current);
+          coyoteTimerRef.current = null;
+        }
+        return;
+      }
+
+      // Cancel any pending open for a different did
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+
+      const cached = profileCache.get(did);
+      if (cached) {
+        showPopup(did);
+        return;
+      }
+
+      hoverTimerRef.current = setTimeout(() => {
+        hoverTimerRef.current = null;
+        showPopup(did);
+      }, HOVER_DELAY);
+    },
+    [activeDid, profileCache, showPopup],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    onButtonRef.current = null;
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    startCoyoteTimer();
+  }, [startCoyoteTimer]);
+
+  const handlePopupEnter = useCallback(() => {
+    onPopupRef.current = true;
+    if (coyoteTimerRef.current) {
+      clearTimeout(coyoteTimerRef.current);
+      coyoteTimerRef.current = null;
+    }
+  }, []);
+
+  const handlePopupLeave = useCallback(() => {
+    onPopupRef.current = false;
+    startCoyoteTimer();
+  }, [startCoyoteTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (coyoteTimerRef.current) clearTimeout(coyoteTimerRef.current);
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const showingPopup = activeDid && (hoverProfile || hoverLoading);
+
   return (
-    <ul className="mt-1 max-h-40 overflow-y-auto text-sm list-disc list-inside">
-      {dids.map((did) => (
-        <li key={did} className="py-0.5">
-          <button
-            onClick={() => onSelect(did)}
-            className="text-indigo-400 hover:bg-white/10 rounded cursor-pointer truncate"
+    <>
+      <ul className="mt-1 max-h-40 overflow-y-auto text-sm list-disc list-inside">
+        {dids.map((did) => (
+          <li key={did} className="py-0.5">
+            <button
+              ref={(el) => {
+                if (el) buttonRefs.current.set(did, el);
+                else buttonRefs.current.delete(did);
+              }}
+              onClick={() => onSelect(did)}
+              onMouseEnter={() => handleMouseEnter(did)}
+              onMouseLeave={handleMouseLeave}
+              className="text-indigo-400 hover:bg-white/10 rounded cursor-pointer truncate"
+            >
+              @{getHandle(did) ?? did}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {showingPopup &&
+        createPortal(
+          <div
+            ref={popupRef}
+            onMouseEnter={handlePopupEnter}
+            onMouseLeave={handlePopupLeave}
+            className="hidden md:block fixed z-50 bg-gray-950/95 backdrop-blur border border-white/10 rounded-lg px-3 py-2.5 w-64 text-white/85 text-sm leading-normal shadow-lg"
+            style={{
+              left: popupPos.x,
+              top: Math.max(8, popupPos.y - 8),
+            }}
           >
-            @{getHandle(did) ?? did}
-          </button>
-        </li>
-      ))}
-    </ul>
+            {hoverLoading && !hoverProfile ? (
+              <div className="text-xs text-white/50">Loading...</div>
+            ) : (
+              hoverProfile && <ProfileCard profile={hoverProfile} compact />
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVouchGraph } from "./hooks/useVouchGraph";
 import { useGraphHighlight } from "./hooks/useGraphHighlight";
 import { useSelectedProfile } from "./hooks/useSelectedProfile";
+import { useProfileCache } from "./hooks/useProfileCache";
 import { VouchGraph } from "./components/VouchGraph";
 import { InfoPanel } from "./components/InfoPanel";
 import { DebugControls } from "./components/DebugControls";
@@ -38,6 +39,8 @@ export default function App() {
     fetchProfile,
     clearProfile,
   } = useSelectedProfile();
+
+  const profileCache = useProfileCache();
 
   const nodeDids = useMemo(() => allNodes.map((n) => n.id), [allNodes]);
 
@@ -133,6 +136,7 @@ export default function App() {
         nodeDids={nodeDids}
         onSelectDid={selectNode}
         onRebuild={rebuild}
+        profileCache={profileCache}
       />
     </div>
   );
