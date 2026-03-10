@@ -70,8 +70,11 @@ export default function App() {
       if (index === undefined) return;
       highlightNode(index);
       focusNodeRef.current?.(did);
+      if (!selectedDidRef.current) {
+        fetchProfile(did);
+      }
     },
-    [highlightNode, nodeIdToIndex],
+    [highlightNode, nodeIdToIndex, fetchProfile],
   );
 
   const clearPreview = useCallback(() => {
@@ -85,8 +88,9 @@ export default function App() {
       }
     }
     clearHighlight();
+    clearProfile();
     focusNodeRef.current?.(undefined);
-  }, [highlightNode, clearHighlight, nodeIdToIndex]);
+  }, [highlightNode, clearHighlight, clearProfile, nodeIdToIndex]);
 
   const handleBackgroundClick = useCallback(() => {
     if (!highlight) return;
