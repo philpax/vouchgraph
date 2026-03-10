@@ -134,7 +134,7 @@ export function VouchGraph({
         linkDefaultArrows
         linkArrowsSizeScale={3}
         fitViewOnInit
-        fitViewDelay={1000}
+        fitViewDelay={2000}
         fitViewPadding={0.15}
         simulationGravity={params.simulationGravity}
         simulationRepulsion={params.simulationRepulsion}
