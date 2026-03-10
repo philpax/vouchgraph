@@ -467,6 +467,15 @@ const HOVER_DELAY = 400;
 /** Grace period after the cursor leaves the handle or popup before dismissing,
  *  allowing the user to move between the two without the popup disappearing. */
 const COYOTE_TIME = 600;
+/** Grace period before clearing the graph preview highlight. */
+const PREVIEW_COYOTE_TIME = 250;
+
+function clearTimer(ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) {
+  if (ref.current) {
+    clearTimeout(ref.current);
+    ref.current = null;
+  }
+}
 
 function DidList({
   dids,
@@ -499,14 +508,8 @@ function DidList({
   const onButtonRef = useRef<string | null>(null);
 
   const dismiss = useCallback(() => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    if (coyoteTimerRef.current) {
-      clearTimeout(coyoteTimerRef.current);
-      coyoteTimerRef.current = null;
-    }
+    clearTimer(hoverTimerRef);
+    clearTimer(coyoteTimerRef);
     abortRef.current?.abort();
     abortRef.current = null;
     onPopupRef.current = false;
@@ -517,7 +520,7 @@ function DidList({
   }, []);
 
   const startCoyoteTimer = useCallback(() => {
-    if (coyoteTimerRef.current) clearTimeout(coyoteTimerRef.current);
+    clearTimer(coyoteTimerRef);
     coyoteTimerRef.current = setTimeout(() => {
       coyoteTimerRef.current = null;
       if (!onPopupRef.current && !onButtonRef.current) {
@@ -528,10 +531,7 @@ function DidList({
 
   const showPopup = useCallback(
     (did: string) => {
-      if (coyoteTimerRef.current) {
-        clearTimeout(coyoteTimerRef.current);
-        coyoteTimerRef.current = null;
-      }
+      clearTimer(coyoteTimerRef);
 
       const el = buttonRefs.current.get(did);
       const panelEl = panelRef?.current;
@@ -575,18 +575,12 @@ function DidList({
 
       // If already showing this did, cancel any pending dismiss
       if (activeDid === did) {
-        if (coyoteTimerRef.current) {
-          clearTimeout(coyoteTimerRef.current);
-          coyoteTimerRef.current = null;
-        }
+        clearTimer(coyoteTimerRef);
         return;
       }
 
       // Cancel any pending open for a different did
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = null;
-      }
+      clearTimer(hoverTimerRef);
 
       const cached = profileCache.get(did);
       if (cached) {
@@ -604,19 +598,13 @@ function DidList({
 
   const handleMouseLeave = useCallback(() => {
     onButtonRef.current = null;
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
+    clearTimer(hoverTimerRef);
     startCoyoteTimer();
   }, [startCoyoteTimer]);
 
   const handlePopupEnter = useCallback(() => {
     onPopupRef.current = true;
-    if (coyoteTimerRef.current) {
-      clearTimeout(coyoteTimerRef.current);
-      coyoteTimerRef.current = null;
-    }
+    clearTimer(coyoteTimerRef);
   }, []);
 
   const handlePopupLeave = useCallback(() => {
@@ -626,9 +614,9 @@ function DidList({
 
   useEffect(() => {
     return () => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      if (coyoteTimerRef.current) clearTimeout(coyoteTimerRef.current);
-      if (previewCoyoteRef.current) clearTimeout(previewCoyoteRef.current);
+      clearTimer(hoverTimerRef);
+      clearTimer(coyoteTimerRef);
+      clearTimer(previewCoyoteRef);
       abortRef.current?.abort();
     };
   }, []);
@@ -648,21 +636,16 @@ function DidList({
               onClick={() => onSelect(did)}
               onMouseEnter={() => {
                 handleMouseEnter(did);
-                if (previewCoyoteRef.current) {
-                  clearTimeout(previewCoyoteRef.current);
-                  previewCoyoteRef.current = null;
-                }
+                clearTimer(previewCoyoteRef);
                 onPreviewDid?.(did);
               }}
               onMouseLeave={() => {
                 handleMouseLeave();
-                if (previewCoyoteRef.current) {
-                  clearTimeout(previewCoyoteRef.current);
-                }
+                clearTimer(previewCoyoteRef);
                 previewCoyoteRef.current = setTimeout(() => {
                   previewCoyoteRef.current = null;
                   onClearPreview?.();
-                }, 250);
+                }, PREVIEW_COYOTE_TIME);
               }}
               className="text-indigo-400 hover:bg-white/10 rounded cursor-pointer truncate"
             >

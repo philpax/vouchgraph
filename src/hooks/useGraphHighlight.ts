@@ -13,9 +13,29 @@ const OUTBOUND_HEX = pastelColorFromHue(200); // blue — who this node vouches 
 const INBOUND_HEX = pastelColorFromHue(30); // orange — who vouches for this node
 const MUTUAL_HEX = pastelColorFromHue(145); // green — mutual recognition
 
+const OPACITY_DECAY = 0.25;
+const LABEL_DISTANCE_THRESHOLD = 2;
+
 function directionColor(hex: string, dist: number): string {
   if (dist <= 1) return hex;
-  return hexToRgba(hex, Math.pow(0.25, dist - 1), 1.0);
+  return hexToRgba(hex, Math.pow(OPACITY_DECAY, dist - 1), 1.0);
+}
+
+function bfs(start: number, adjacency: Map<number, number[]>): Map<number, number> {
+  const dist = new Map<number, number>();
+  dist.set(start, 0);
+  const queue = [start];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const currentDist = dist.get(current)!;
+    for (const n of adjacency.get(current) ?? []) {
+      if (!dist.has(n)) {
+        dist.set(n, currentDist + 1);
+        queue.push(n);
+      }
+    }
+  }
+  return dist;
 }
 
 const DIMMED = hexToRgba("#888888", 0.06, 0.3);
@@ -88,36 +108,8 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
 
   const highlightNode = useCallback(
     (index: number) => {
-      // Outbound BFS (who does this node trust, transitively)
-      const outboundDist = new Map<number, number>();
-      outboundDist.set(index, 0);
-      let queue = [index];
-      while (queue.length > 0) {
-        const current = queue.shift()!;
-        const currentDist = outboundDist.get(current)!;
-        for (const n of outboundAdj.get(current) ?? []) {
-          if (!outboundDist.has(n)) {
-            outboundDist.set(n, currentDist + 1);
-            queue.push(n);
-          }
-        }
-      }
-
-      // Inbound BFS (who trusts this node, transitively)
-      const inboundDist = new Map<number, number>();
-      inboundDist.set(index, 0);
-      queue = [index];
-      while (queue.length > 0) {
-        const current = queue.shift()!;
-        const currentDist = inboundDist.get(current)!;
-        for (const n of inboundAdj.get(current) ?? []) {
-          if (!inboundDist.has(n)) {
-            inboundDist.set(n, currentDist + 1);
-            queue.push(n);
-          }
-        }
-      }
-
+      const outboundDist = bfs(index, outboundAdj);
+      const inboundDist = bfs(index, inboundAdj);
       setHighlight({ outboundDist, inboundDist, center: index });
     },
     [outboundAdj, inboundAdj],
@@ -131,14 +123,14 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     if (!highlight) return undefined;
     const result: VouchNode[] = [];
     for (const [idx, dist] of highlight.outboundDist) {
-      if (dist <= 2 && idx < nodes.length) result.push(nodes[idx]);
+      if (dist <= LABEL_DISTANCE_THRESHOLD && idx < nodes.length) result.push(nodes[idx]);
     }
     for (const [idx, dist] of highlight.inboundDist) {
-      if (dist <= 2 && idx < nodes.length) {
+      if (dist <= LABEL_DISTANCE_THRESHOLD && idx < nodes.length) {
         // Avoid duplicates
         if (
           !highlight.outboundDist.has(idx) ||
-          highlight.outboundDist.get(idx)! > 2
+          highlight.outboundDist.get(idx)! > LABEL_DISTANCE_THRESHOLD
         ) {
           result.push(nodes[idx]);
         }
@@ -160,8 +152,7 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
   const linkColorFn = useCallback(
     (link: VouchLink): string => {
       const defaultColor =
-        ((link as Record<string, unknown>).color as string) ??
-        "rgba(255,255,255,0.6)";
+        link.color ?? "rgba(255,255,255,0.6)";
       if (!highlight) return defaultColor;
       const srcIdx = nodeIdToIndex.get(link.source);
       const tgtIdx = nodeIdToIndex.get(link.target);

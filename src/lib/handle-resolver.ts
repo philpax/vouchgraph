@@ -35,7 +35,3 @@ export function getDidByHandle(handle: string): string | undefined {
   }
   return undefined;
 }
-
-export function displayName(did: string): string {
-  return cache.get(did) ?? did;
-}

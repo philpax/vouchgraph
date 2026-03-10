@@ -12,6 +12,9 @@ import type { HighlightState } from "../hooks/useGraphHighlight";
 import { hexToRgba } from "../lib/color";
 import "./vouch-graph.css";
 
+const LABEL_COLOR = "rgba(255,255,255,0.9)";
+const LABEL_OPACITY_DECAY = 0.5;
+
 interface VouchGraphProps {
   nodes: VouchNode[];
   links: VouchLink[];
@@ -126,7 +129,7 @@ function VouchGraphInner({
       linkArrows={true}
       linkArrowsSizeScale={0.5}
       nodeLabelAccessor={(n: VouchNode) => n.label}
-      nodeLabelColor="rgba(255,255,255,0.9)"
+      nodeLabelColor={LABEL_COLOR}
       showDynamicLabels={!showLabelsFor}
       showTopLabels={!showLabelsFor}
       showHoveredNodeLabel
@@ -183,7 +186,7 @@ function useVouchLabelPatch(
           } else {
             const dist = Math.min(outDist ?? Infinity, inDist ?? Infinity);
             if (dist > 1) {
-              parts.push(`opacity: ${Math.max(0.2, Math.pow(0.5, dist - 1))};`);
+              parts.push(`opacity: ${Math.max(0.2, Math.pow(LABEL_OPACITY_DECAY, dist - 1))};`);
             }
           }
         }
@@ -261,7 +264,7 @@ function useVouchLabelPatch(
                 : weight,
             shouldBeShown: isVisible,
             style: getNodeLabelStyle(node, isVisible),
-            color: "rgba(255,255,255,0.9)",
+            color: LABEL_COLOR,
             className: "vouch-label",
           };
         },
@@ -289,7 +292,7 @@ function useVouchLabelPatch(
         this._hoveredCssLabel.setPosition(screenPosition[0], screenPosition[1]);
         this._hoveredCssLabel.setClassName("vouch-label vouch-hovered-label");
         this._hoveredCssLabel.setStyle(getNodeLabelStyle(node, true));
-        this._hoveredCssLabel.setColor("rgba(255,255,255,0.9)");
+        this._hoveredCssLabel.setColor(LABEL_COLOR);
       } else {
         this._hoveredCssLabel.setVisibility(false);
       }

@@ -7,7 +7,6 @@ import { createJetstreamSubscription } from "../lib/jetstream";
 import type { JetstreamSubscription } from "@atcute/jetstream";
 
 export interface VouchNode {
-  [key: string]: unknown;
   id: string;
   label: string;
   color: string;
@@ -17,9 +16,9 @@ export interface VouchNode {
 }
 
 export interface VouchLink {
-  [key: string]: unknown;
   source: string;
   target: string;
+  color?: string;
 }
 
 export interface VouchGraphStatus {
@@ -43,6 +42,15 @@ export interface VouchGraphResult {
   status: VouchGraphStatus;
   /** Promote live data into the Cosmograph snapshot */
   rebuild: () => void;
+}
+
+function linkKey(from: string, to: string): string {
+  return `${from}->${to}`;
+}
+
+function parseLinkKey(key: string) {
+  const [source, target] = key.split("->");
+  return { source, target };
 }
 
 const HANDLE_RESOLVE_BATCH = 50;
@@ -238,10 +246,7 @@ export function useVouchGraph(
       nodeSizeMax: sM,
       nodeSizeScale: sS,
     } = sizeParamsRef.current;
-    const linkList = [...linkSetRef.current].map((key) => {
-      const [source, target] = key.split("->");
-      return { source, target };
-    });
+    const linkList = [...linkSetRef.current].map(parseLinkKey);
     const data = buildNodesAndLinks(nodeSetRef.current, linkList, sm, sM, sS);
     setGraphData(data);
     setStatus((s) => ({ ...s, pendingChanges: false, rebuilding: false }));
@@ -301,7 +306,7 @@ export function useVouchGraph(
         for (const edge of filteredEdges) {
           nodeSetRef.current.add(edge.from);
           nodeSetRef.current.add(edge.to);
-          linkSetRef.current.add(`${edge.from}->${edge.to}`);
+          linkSetRef.current.add(linkKey(edge.from, edge.to));
         }
 
         const linkList = filteredEdges.map((e) => ({
@@ -340,7 +345,7 @@ export function useVouchGraph(
         subscriptionRef.current = createJetstreamSubscription({
           onCreate: (edge: VouchEdge) => {
             if (edge.from === edge.to) return;
-            const key = `${edge.from}->${edge.to}`;
+            const key = linkKey(edge.from, edge.to);
             if (linkSetRef.current.has(key)) return;
             linkSetRef.current.add(key);
 
@@ -361,7 +366,7 @@ export function useVouchGraph(
             scheduleHandleResolve();
           },
           onDelete: (did, rkey) => {
-            const key = `${did}->${rkey}`;
+            const key = linkKey(did, rkey);
             if (linkSetRef.current.has(key)) {
               linkSetRef.current.delete(key);
               setStatus((s) => ({
