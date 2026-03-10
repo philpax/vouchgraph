@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { AppBskyActorDefs } from "@atcute/bluesky/lexicons";
 import type { VouchGraphStatus } from "../hooks/useVouchGraph";
 import { getHandle } from "../lib/handle-resolver";
@@ -26,18 +26,20 @@ export function InfoPanel({
   onSelectDid,
   onRebuild,
 }: InfoPanelProps) {
-  const [mobileTab, setMobileTab] = useState<MobileTab>("info");
-  const prevProfileDid = useRef<string | null>(null);
+  const hasSelection = !!profile || profileLoading;
+  const [mobileTabManual, setMobileTabManual] = useState<MobileTab | null>(
+    null,
+  );
+  const [prevHasSelection, setPrevHasSelection] = useState(hasSelection);
 
-  // Auto-switch tabs based on selection state
-  useEffect(() => {
-    if (profile && profile.did !== prevProfileDid.current) {
-      setMobileTab("selected");
-    } else if (!profile && !profileLoading) {
-      setMobileTab("info");
-    }
-    prevProfileDid.current = profile?.did ?? null;
-  }, [profile, profileLoading]);
+  // Reset manual override when selection state changes
+  if (hasSelection !== prevHasSelection) {
+    setPrevHasSelection(hasSelection);
+    setMobileTabManual(null);
+  }
+
+  const mobileTab = mobileTabManual ?? (hasSelection ? "selected" : "info");
+  const setMobileTab = setMobileTabManual;
 
   return (
     <>
@@ -111,11 +113,7 @@ function InfoContent({
   return (
     <>
       <div className="flex items-center gap-2.5 mb-2">
-        <img
-          src="/vouchgraph-icon.svg"
-          alt=""
-          className="w-9 h-9 shrink-0"
-        />
+        <img src="/vouchgraph-icon.svg" alt="" className="w-9 h-9 shrink-0" />
         <div>
           <div className="font-bold text-lg leading-tight">vouchgraph</div>
           <div className="text-xs text-white/50">

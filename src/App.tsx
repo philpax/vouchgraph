@@ -4,11 +4,8 @@ import { useGraphHighlight } from "./hooks/useGraphHighlight";
 import { useSelectedProfile } from "./hooks/useSelectedProfile";
 import { VouchGraph } from "./components/VouchGraph";
 import { InfoPanel } from "./components/InfoPanel";
-import {
-  DebugControls,
-  DEFAULT_SIM_PARAMS,
-  type SimParams,
-} from "./components/DebugControls";
+import { DebugControls } from "./components/DebugControls";
+import { DEFAULT_SIM_PARAMS, type SimParams } from "./lib/sim-params";
 import { ProgressBar } from "./components/StatusBar";
 import { getHandle, getDidByHandle } from "./lib/handle-resolver";
 
@@ -79,7 +76,11 @@ export default function App() {
     clearHighlight();
     clearProfile();
     focusPointRef.current?.(undefined);
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
   }, [highlight, clearHighlight, clearProfile]);
 
   // Sync selection from URL hash

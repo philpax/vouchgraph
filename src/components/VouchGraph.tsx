@@ -7,7 +7,7 @@ import {
   type CosmographConfig,
 } from "@cosmograph/react";
 import type { VouchNode, VouchLink } from "../hooks/useVouchGraph";
-import type { SimParams } from "./DebugControls";
+import type { SimParams } from "../lib/sim-params";
 
 const DATA_PREP_CONFIG = {
   points: {
