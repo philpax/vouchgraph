@@ -131,9 +131,7 @@ function InfoContent({
           <div className="text-xs text-white/50">
             by{" "}
             <a
-              href="https://bsky.app/profile/philpax.me"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#philpax.me"
               className="text-indigo-400 no-underline"
             >
               @philpax.me
