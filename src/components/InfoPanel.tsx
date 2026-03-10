@@ -6,7 +6,7 @@ import type { useProfileCache } from "../hooks/useProfileCache";
 import { getHandle } from "../lib/handle-resolver";
 import { ProfileCard } from "./ProfileCard";
 
-type MobileTab = "info" | "selected";
+type MobileTab = "info" | "selected" | "search";
 type MobileSelectedSubTab = "profile" | "inbound" | "outbound";
 type VouchTab = "inbound" | "outbound";
 
@@ -42,6 +42,38 @@ export function InfoPanel({
   const [prevHasSelection, setPrevHasSelection] = useState(hasSelection);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Search state (lifted for mobile inline results)
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const matches: { did: string; handle: string }[] = [];
+    for (const did of nodeDids) {
+      const handle = getHandle(did) ?? did;
+      if (handle.toLowerCase().includes(q) || did.toLowerCase().includes(q)) {
+        matches.push({ did, handle });
+        if (matches.length >= MAX_RESULTS) break;
+      }
+    }
+    return matches;
+  }, [searchQuery, nodeDids]);
+
+  const handleSearchQueryChange = (q: string) => {
+    setSearchQuery(q);
+    if (q.trim()) {
+      setMobileTabManual("search");
+    } else if (mobileTabManual === "search") {
+      setMobileTabManual(null);
+    }
+  };
+
+  const selectSearchResult = (did: string) => {
+    setSearchQuery("");
+    setMobileTabManual(null);
+    onSelectDid(did);
+  };
+
   // Reset manual override when selection state changes
   if (hasSelection !== prevHasSelection) {
     setPrevHasSelection(hasSelection);
@@ -49,7 +81,10 @@ export function InfoPanel({
   }
 
   const mobileTab = mobileTabManual ?? (hasSelection ? "selected" : "info");
-  const setMobileTab = setMobileTabManual;
+  const setMobileTab = (tab: MobileTab) => {
+    if (tab !== "search") setSearchQuery("");
+    setMobileTabManual(tab);
+  };
 
   return (
     <>
@@ -60,7 +95,13 @@ export function InfoPanel({
       >
         <InfoContent status={status} onRebuild={onRebuild} />
         {!status.loading && (
-          <SearchBar nodeDids={nodeDids} onSelect={onSelectDid} />
+          <SearchBar
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            results={searchResults}
+            onSelect={selectSearchResult}
+            mode="dropdown"
+          />
         )}
         <DesktopUserContent
           profile={profile}
@@ -75,13 +116,24 @@ export function InfoPanel({
       </div>
 
       {/* Mobile: bottom panel */}
-      <div className="md:hidden flex flex-col shrink-0 overflow-hidden bg-gray-950/95 backdrop-blur text-white/85 text-sm leading-normal border-t border-white/10 pointer-events-auto">
+      <div className="md:hidden flex flex-col shrink-0 bg-gray-950/95 backdrop-blur text-white/85 text-sm leading-normal border-t border-white/10 pointer-events-auto">
         {!status.loading && (
           <div className="px-4 pt-3 pb-1">
-            <SearchBar nodeDids={nodeDids} onSelect={onSelectDid} />
+            <SearchBar
+              query={searchQuery}
+              onQueryChange={handleSearchQueryChange}
+              results={searchResults}
+              onSelect={selectSearchResult}
+              mode="inline"
+            />
           </div>
         )}
         <div className="flex text-sm border-b border-white/10">
+          {mobileTab === "search" && (
+            <button className="flex-1 py-2.5 cursor-pointer transition-colors text-white border-b border-white">
+              Search
+            </button>
+          )}
           <button
             onClick={() => setMobileTab("info")}
             className={`flex-1 py-2.5 cursor-pointer transition-colors ${
@@ -104,7 +156,12 @@ export function InfoPanel({
           </button>
         </div>
         <div className="px-4 py-3 h-56 overflow-y-auto">
-          {mobileTab === "info" ? (
+          {mobileTab === "search" ? (
+            <SearchResults
+              results={searchResults}
+              onSelect={selectSearchResult}
+            />
+          ) : mobileTab === "info" ? (
             <InfoContent status={status} onRebuild={onRebuild} />
           ) : (
             <MobileSelectedContent
@@ -385,33 +442,48 @@ function DesktopProfileCard({
 
 const MAX_RESULTS = 8;
 
-function SearchBar({
-  nodeDids,
+function SearchResults({
+  results,
   onSelect,
 }: {
-  nodeDids: string[];
+  results: { did: string; handle: string }[];
   onSelect: (did: string) => void;
 }) {
-  const [query, setQuery] = useState("");
+  if (results.length === 0) {
+    return <div className="text-sm text-white/30">No results</div>;
+  }
+  return (
+    <div>
+      {results.map((r) => (
+        <button
+          key={r.did}
+          onClick={() => onSelect(r.did)}
+          className="block w-full text-left px-3 py-1.5 text-sm text-indigo-400 hover:bg-white/10 cursor-pointer truncate rounded"
+        >
+          @{r.handle}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SearchBar({
+  query,
+  onQueryChange,
+  results,
+  onSelect,
+  mode,
+}: {
+  query: string;
+  onQueryChange: (query: string) => void;
+  results: { did: string; handle: string }[];
+  onSelect: (did: string) => void;
+  mode: "dropdown" | "inline";
+}) {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const matches: { did: string; handle: string }[] = [];
-    for (const did of nodeDids) {
-      const handle = getHandle(did) ?? did;
-      if (handle.toLowerCase().includes(q) || did.toLowerCase().includes(q)) {
-        matches.push({ did, handle });
-        if (matches.length >= MAX_RESULTS) break;
-      }
-    }
-    return matches;
-  }, [query, nodeDids]);
-
   const selectResult = (did: string) => {
-    setQuery("");
     inputRef.current?.blur();
     onSelect(did);
   };
@@ -422,10 +494,12 @@ function SearchBar({
       selectResult(results[0].did);
     }
     if (e.key === "Escape") {
-      setQuery("");
+      onQueryChange("");
       inputRef.current?.blur();
     }
   };
+
+  const showDropdown = mode === "dropdown" && focused && query.trim();
 
   return (
     <div className="mt-2 relative">
@@ -433,15 +507,15 @@ function SearchBar({
         ref={inputRef}
         type="text"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => onQueryChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setTimeout(() => setFocused(false), 150)}
         onKeyDown={handleKeyDown}
         placeholder="Search users..."
         className="w-full text-sm px-3 py-2 bg-white/10 border border-white/10 rounded text-white placeholder-white/30 outline-none focus:border-indigo-400/50"
       />
-      {focused && query.trim() && results.length > 0 && (
-        <div className="absolute left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded overflow-hidden z-10 bottom-full md:bottom-auto md:top-full mb-1 md:mb-0">
+      {showDropdown && results.length > 0 && (
+        <div className="absolute left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded overflow-hidden z-10 top-full">
           {results.map((r) => (
             <button
               key={r.did}
@@ -453,8 +527,8 @@ function SearchBar({
           ))}
         </div>
       )}
-      {focused && query.trim() && results.length === 0 && (
-        <div className="absolute left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded px-3 py-2 text-sm text-white/30 z-10 bottom-full md:bottom-auto md:top-full mb-1 md:mb-0">
+      {showDropdown && results.length === 0 && (
+        <div className="absolute left-0 right-0 mt-1 bg-gray-900 border border-white/10 rounded px-3 py-2 text-sm text-white/30 z-10 top-full">
           No results
         </div>
       )}
