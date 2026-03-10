@@ -279,7 +279,6 @@ export function useVouchGraph(
       try {
         const allEdges = await fetchAllVouches(
           (progress) => setStatus((s) => ({ ...s, progress })),
-          undefined,
           abortController.signal,
         );
 

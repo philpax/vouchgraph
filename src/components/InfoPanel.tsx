@@ -146,8 +146,7 @@ function InfoContent({
         >
           atvouch.dev
         </a>
-        . Proof of concept - every page load queries the relay and each PDS to
-        do a full backfill with no caching, so please do be gentle.
+        .
       </div>
       <div className="mt-2 text-xs text-white/50 flex items-center gap-2">
         <span>

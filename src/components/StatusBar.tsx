@@ -21,9 +21,7 @@ export function ProgressBar({ status }: StatusBarProps) {
           />
         </div>
         <span className="text-sm text-white/70">
-          {status.progress?.phase === "repos"
-            ? "Discovering repos..."
-            : `${progressPct}%`}
+          Fetching vouches... {progressPct}%
         </span>
       </div>
     </div>
