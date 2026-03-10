@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import type { AppBskyActorDefs } from "@atcute/bluesky/lexicons";
+import type { AppBskyActorDefs } from "@atcute/bluesky";
 import type { VouchGraphStatus } from "../hooks/useVouchGraph";
 import { getHandle } from "../lib/handle-resolver";
 

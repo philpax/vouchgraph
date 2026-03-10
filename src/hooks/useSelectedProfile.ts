@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { publicClient } from "../lib/api";
-import type { AppBskyActorDefs } from "@atcute/bluesky/lexicons";
+import type { AppBskyActorDefs } from "@atcute/bluesky";
 import type { Did } from "@atcute/lexicons";
 
 export interface SelectedProfileState {
