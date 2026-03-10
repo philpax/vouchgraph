@@ -16,9 +16,7 @@ const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has(
 export default function App() {
   const [params, setParams] = useState<SimParams>(DEFAULT_SIM_PARAMS);
   const reheatRef = useRef<(() => void) | null>(null);
-  const focusPointRef = useRef<((index: number | undefined) => void) | null>(
-    null,
-  );
+  const focusNodeRef = useRef<((did: string | undefined) => void) | null>(null);
 
   const { cosmoNodes, cosmoLinks, allNodes, allLinks, status, rebuild } =
     useVouchGraph(params.nodeSizeMin, params.nodeSizeMax, params.nodeSizeScale);
@@ -28,10 +26,10 @@ export default function App() {
     highlightNode,
     clearHighlight,
     vouchDetails,
-    pointLabelClassName,
     showLabelsFor,
-    pointColorByFn,
-    linkColorByFn,
+    nodeColorFn,
+    linkColorFn,
+    nodeIdToIndex,
   } = useGraphHighlight(allNodes, allLinks);
 
   const {
@@ -43,16 +41,12 @@ export default function App() {
 
   const nodeDids = useMemo(() => allNodes.map((n) => n.id), [allNodes]);
 
-  const nodeIdToIndex = useMemo(() => {
-    const map = new Map<string, number>();
-    allNodes.forEach((n, i) => map.set(n.id, i));
-    return map;
-  }, [allNodes]);
-
   const selectNode = useCallback(
-    (index: number) => {
+    (did: string) => {
+      const index = nodeIdToIndex.get(did);
+      if (index === undefined) return;
       highlightNode(index);
-      focusPointRef.current?.(index);
+      focusNodeRef.current?.(did);
       const node = allNodes[index];
       if (node) {
         fetchProfile(node.id);
@@ -60,22 +54,14 @@ export default function App() {
         window.history.replaceState(null, "", `#${handle}`);
       }
     },
-    [highlightNode, allNodes, fetchProfile],
-  );
-
-  const handleSelectDid = useCallback(
-    (did: string) => {
-      const index = nodeIdToIndex.get(did);
-      if (index !== undefined) selectNode(index);
-    },
-    [nodeIdToIndex, selectNode],
+    [highlightNode, allNodes, fetchProfile, nodeIdToIndex],
   );
 
   const handleBackgroundClick = useCallback(() => {
     if (!highlight) return;
     clearHighlight();
     clearProfile();
-    focusPointRef.current?.(undefined);
+    focusNodeRef.current?.(undefined);
     window.history.replaceState(
       null,
       "",
@@ -96,8 +82,7 @@ export default function App() {
       if (!did) did = getDidByHandle(hash);
       if (!did) return;
 
-      const index = nodeIdToIndex.get(did);
-      if (index !== undefined) selectNode(index);
+      selectNode(did);
     };
 
     selectFromHash();
@@ -119,11 +104,12 @@ export default function App() {
           loading={status.loading}
           params={params}
           showLabelsFor={showLabelsFor}
-          pointLabelClassName={pointLabelClassName}
-          pointColorByFn={pointColorByFn}
-          linkColorByFn={linkColorByFn}
-          onPointClick={selectNode}
-          onFocusPointRef={focusPointRef}
+          highlight={highlight}
+          nodeIdToIndex={nodeIdToIndex}
+          nodeColorFn={nodeColorFn}
+          linkColorFn={linkColorFn}
+          onNodeClick={selectNode}
+          onFocusNodeRef={focusNodeRef}
           onBackgroundClick={handleBackgroundClick}
           onReheatRef={reheatRef}
         />
@@ -145,7 +131,7 @@ export default function App() {
         profileLoading={profileLoading}
         vouchDetails={vouchDetails}
         nodeDids={nodeDids}
-        onSelectDid={handleSelectDid}
+        onSelectDid={selectNode}
         onRebuild={rebuild}
       />
     </div>

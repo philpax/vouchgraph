@@ -127,61 +127,45 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     setHighlight(null);
   }, []);
 
-  const pointLabelClassName = useCallback(
-    (_text: string, pointIndex: number) => {
-      const node = nodes[pointIndex];
-      const color = highlight
-        ? nodeHighlightColor(highlight, pointIndex, node?.color ?? "#888888")
-        : (node?.color ?? "#888888");
-      const bg = hexToRgba(color, 0.85, 0.35);
-      let style = `background: ${bg}; color: white; padding: 2px 6px; border-radius: 4px;`;
-
-      if (highlight) {
-        const outDist = highlight.outboundDist.get(pointIndex);
-        const inDist = highlight.inboundDist.get(pointIndex);
-        if (outDist === undefined && inDist === undefined) {
-          style += " opacity: 0.2; filter: brightness(0.4);";
-        } else {
-          const dist = Math.min(outDist ?? Infinity, inDist ?? Infinity);
-          if (dist > 1) {
-            style += ` opacity: ${Math.pow(0.25, dist - 1)};`;
-          }
-        }
-      }
-
-      return style;
-    },
-    [nodes, highlight],
-  );
-
   const showLabelsFor = useMemo(() => {
     if (!highlight) return undefined;
-    const ids = new Set<string>();
+    const result: VouchNode[] = [];
     for (const [idx, dist] of highlight.outboundDist) {
-      if (dist <= 2 && idx < nodes.length) ids.add(nodes[idx].id);
+      if (dist <= 2 && idx < nodes.length) result.push(nodes[idx]);
     }
     for (const [idx, dist] of highlight.inboundDist) {
-      if (dist <= 2 && idx < nodes.length) ids.add(nodes[idx].id);
+      if (dist <= 2 && idx < nodes.length) {
+        // Avoid duplicates
+        if (
+          !highlight.outboundDist.has(idx) ||
+          highlight.outboundDist.get(idx)! > 2
+        ) {
+          result.push(nodes[idx]);
+        }
+      }
     }
-    return [...ids];
+    return result;
   }, [highlight, nodes]);
 
-  const pointColorByFn = useCallback(
-    (colorHex: string, index?: number): string => {
-      if (!highlight || index === undefined) return colorHex;
-      return nodeHighlightColor(highlight, index, colorHex);
+  const nodeColorFn = useCallback(
+    (node: VouchNode): string => {
+      if (!highlight) return node.color;
+      const index = nodeIdToIndex.get(node.id);
+      if (index === undefined) return node.color;
+      return nodeHighlightColor(highlight, index, node.color);
     },
-    [highlight],
+    [highlight, nodeIdToIndex],
   );
 
-  const linkColorByFn = useCallback(
-    (colorHex: string, index?: number): string => {
-      if (!highlight || index === undefined || index >= links.length)
-        return colorHex;
-      const l = links[index];
-      const srcIdx = nodeIdToIndex.get(l.source);
-      const tgtIdx = nodeIdToIndex.get(l.target);
-      if (srcIdx === undefined || tgtIdx === undefined) return colorHex;
+  const linkColorFn = useCallback(
+    (link: VouchLink): string => {
+      const defaultColor =
+        ((link as Record<string, unknown>).color as string) ??
+        "rgba(255,255,255,0.6)";
+      if (!highlight) return defaultColor;
+      const srcIdx = nodeIdToIndex.get(link.source);
+      const tgtIdx = nodeIdToIndex.get(link.target);
+      if (srcIdx === undefined || tgtIdx === undefined) return defaultColor;
 
       const srcOutDist = highlight.outboundDist.get(srcIdx);
       const tgtOutDist = highlight.outboundDist.get(tgtIdx);
@@ -210,7 +194,7 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
 
       return DIMMED;
     },
-    [highlight, links, nodeIdToIndex],
+    [highlight, nodeIdToIndex],
   );
 
   return {
@@ -218,9 +202,9 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     highlightNode,
     clearHighlight,
     vouchDetails,
-    pointLabelClassName,
     showLabelsFor,
-    pointColorByFn,
-    linkColorByFn,
+    nodeColorFn,
+    linkColorFn,
+    nodeIdToIndex,
   };
 }

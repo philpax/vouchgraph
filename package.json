@@ -17,7 +17,7 @@
     "@atcute/bluesky": "^3.3.0",
     "@atcute/client": "^4.2.1",
     "@atcute/jetstream": "^1.1.2",
-    "@cosmograph/react": "^2.1.0",
+    "@cosmograph/react": "^1.4.2",
     "@tailwindcss/vite": "^4.2.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

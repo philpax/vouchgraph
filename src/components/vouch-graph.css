@@ -1,0 +1,14 @@
+.vouch-label {
+  font-weight: normal !important;
+  padding: 2px 6px !important;
+  margin: 0 !important;
+  border-radius: 4px;
+}
+
+.vouch-label:hover {
+  filter: brightness(1.6);
+}
+
+.vouch-hovered-label {
+  filter: brightness(1.6);
+}
