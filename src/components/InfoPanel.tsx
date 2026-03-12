@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { AppBskyActorDefs } from "@atcute/bluesky";
 import type { VouchGraphStatus } from "../hooks/useVouchGraph";
 import type { useProfileCache } from "../hooks/useProfileCache";
-import { getHandle } from "../lib/handle-resolver";
+import { getHandle, truncateHandle } from "../lib/handle-resolver";
 import { ProfileCard } from "./ProfileCard";
 
 type MobileTab = "info" | "selected" | "search";
@@ -460,7 +460,7 @@ function SearchResults({
           onClick={() => onSelect(r.did)}
           className="block w-full text-left px-3 py-1.5 text-sm text-indigo-400 hover:bg-white/10 cursor-pointer truncate rounded"
         >
-          @{r.handle}
+          @{truncateHandle(r.handle)}
         </button>
       ))}
     </div>
@@ -522,7 +522,7 @@ function SearchBar({
               onMouseDown={() => selectResult(r.did)}
               className="block w-full text-left px-3 py-1.5 text-sm text-indigo-400 hover:bg-white/10 cursor-pointer truncate"
             >
-              @{r.handle}
+              @{truncateHandle(r.handle)}
             </button>
           ))}
         </div>
@@ -725,7 +725,7 @@ function DidList({
               }}
               className="text-indigo-400 hover:bg-white/10 rounded cursor-pointer truncate"
             >
-              @{getHandle(did) ?? did}
+              @{truncateHandle(getHandle(did) ?? did)}
             </button>
           </li>
         ))}

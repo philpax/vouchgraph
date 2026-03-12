@@ -1,4 +1,5 @@
 import type { AppBskyActorDefs } from "@atcute/bluesky";
+import { truncateHandle } from "../lib/handle-resolver";
 
 interface ProfileCardProps {
   profile: AppBskyActorDefs.ProfileViewDetailed;
@@ -30,7 +31,7 @@ export function ProfileCard({ profile, compact }: ProfileCardProps) {
             rel="noopener noreferrer"
             className="text-indigo-400 text-sm no-underline"
           >
-            @{profile.handle}
+            @{truncateHandle(profile.handle)}
           </a>
         </div>
       </div>

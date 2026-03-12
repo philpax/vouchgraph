@@ -29,6 +29,15 @@ export async function resolveHandles(dids: string[]): Promise<void> {
   }
 }
 
+const MAX_HANDLE_DISPLAY_LENGTH = 24;
+
+export function truncateHandle(handle: string): string {
+  if (handle.length > MAX_HANDLE_DISPLAY_LENGTH) {
+    return handle.slice(0, MAX_HANDLE_DISPLAY_LENGTH) + "...";
+  }
+  return handle;
+}
+
 export function getDidByHandle(handle: string): string | undefined {
   for (const [did, h] of cache) {
     if (h === handle) return did;

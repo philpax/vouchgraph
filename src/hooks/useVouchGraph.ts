@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { VouchEdge } from "../lib/types";
 import { fetchAllVouches, type FetchProgress } from "../lib/vouch-fetcher";
-import { resolveHandles, getHandle } from "../lib/handle-resolver";
+import { resolveHandles, getHandle, truncateHandle } from "../lib/handle-resolver";
 import { hueFromName, pastelColorFromHue, circularMeanHue } from "../lib/color";
 import { createJetstreamSubscription } from "../lib/jetstream";
 import type { JetstreamSubscription } from "@atcute/jetstream";
@@ -138,7 +138,7 @@ function makeNode(
   const handle = getHandle(id);
   return {
     id,
-    label: handle ?? id,
+    label: truncateHandle(handle ?? id),
     color: pastelColorFromHue(hue),
     hue,
     size,
