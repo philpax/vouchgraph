@@ -8,7 +8,11 @@ import { InfoPanel } from "./components/InfoPanel";
 import { DebugControls } from "./components/DebugControls";
 import { DEFAULT_SIM_PARAMS, type SimParams } from "./lib/sim-params";
 import { ProgressBar } from "./components/StatusBar";
-import { getHandle, getDidByHandle } from "./lib/handle-resolver";
+import {
+  getHandle,
+  getDidByHandle,
+  truncateHandle,
+} from "./lib/handle-resolver";
 
 const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has(
   "debugControls",
@@ -59,6 +63,7 @@ export default function App() {
         fetchProfile(node.id);
         const handle = getHandle(node.id) ?? node.id;
         window.history.pushState(null, "", `#${handle}`);
+        document.title = `vouchgraph: ${truncateHandle(handle)}`;
       }
     },
     [highlightNode, allNodes, fetchProfile, nodeIdToIndex],
@@ -103,6 +108,7 @@ export default function App() {
       "",
       window.location.pathname + window.location.search,
     );
+    document.title = "vouchgraph";
   }, [highlight, clearHighlight, clearProfile]);
 
   // Sync selection from URL hash (initial load + back/forward navigation)
@@ -117,6 +123,7 @@ export default function App() {
         clearHighlight();
         clearProfile();
         focusNodeRef.current?.(undefined);
+        document.title = "vouchgraph";
         return;
       }
 
@@ -134,6 +141,8 @@ export default function App() {
       highlightNode(index);
       focusNodeRef.current?.(did);
       fetchProfile(did);
+      const handle = getHandle(did) ?? did;
+      document.title = `vouchgraph: ${truncateHandle(handle)}`;
     };
 
     selectFromHash();
