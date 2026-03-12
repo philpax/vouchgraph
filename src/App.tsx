@@ -58,7 +58,7 @@ export default function App() {
       if (node) {
         fetchProfile(node.id);
         const handle = getHandle(node.id) ?? node.id;
-        window.history.replaceState(null, "", `#${handle}`);
+        window.history.pushState(null, "", `#${handle}`);
       }
     },
     [highlightNode, allNodes, fetchProfile, nodeIdToIndex],
@@ -98,34 +98,57 @@ export default function App() {
     clearHighlight();
     clearProfile();
     focusNodeRef.current?.(undefined);
-    window.history.replaceState(
+    window.history.pushState(
       null,
       "",
       window.location.pathname + window.location.search,
     );
   }, [highlight, clearHighlight, clearProfile]);
 
-  // Sync selection from URL hash
+  // Sync selection from URL hash (initial load + back/forward navigation)
   useEffect(() => {
     if (status.loading || allNodes.length === 0) return;
 
     const selectFromHash = () => {
       const hash = decodeURIComponent(window.location.hash.slice(1));
-      if (!hash) return;
+      if (!hash) {
+        // Hash cleared (e.g. back to no selection)
+        selectedDidRef.current = undefined;
+        clearHighlight();
+        clearProfile();
+        focusNodeRef.current?.(undefined);
+        return;
+      }
 
       // Try as DID first, then as handle
       let did = nodeIdToIndex.has(hash) ? hash : undefined;
       if (!did) did = getDidByHandle(hash);
       if (!did) return;
 
-      selectNode(did);
+      // Avoid re-selecting the same node
+      if (did === selectedDidRef.current) return;
+
+      const index = nodeIdToIndex.get(did);
+      if (index === undefined) return;
+      selectedDidRef.current = did;
+      highlightNode(index);
+      focusNodeRef.current?.(did);
+      fetchProfile(did);
     };
 
     selectFromHash();
 
-    window.addEventListener("hashchange", selectFromHash);
-    return () => window.removeEventListener("hashchange", selectFromHash);
-  }, [status.loading, allNodes, nodeIdToIndex, selectNode]);
+    window.addEventListener("popstate", selectFromHash);
+    return () => window.removeEventListener("popstate", selectFromHash);
+  }, [
+    status.loading,
+    allNodes,
+    nodeIdToIndex,
+    highlightNode,
+    fetchProfile,
+    clearHighlight,
+    clearProfile,
+  ]);
 
   const handleReheat = useCallback(() => {
     reheatRef.current?.();
