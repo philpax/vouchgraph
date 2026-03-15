@@ -3,7 +3,8 @@ import { useVouchGraph } from "./hooks/useVouchGraph";
 import { useGraphHighlight } from "./hooks/useGraphHighlight";
 import { useSelectedProfile } from "./hooks/useSelectedProfile";
 import { useProfileCache } from "./hooks/useProfileCache";
-import { VouchGraph } from "./components/VouchGraph";
+import { useAuth } from "./hooks/useAuth";
+import { VouchGraph, FIT_VIEW_DURATION } from "./components/VouchGraph";
 import { InfoPanel } from "./components/InfoPanel";
 import { DebugControls } from "./components/DebugControls";
 import { DEFAULT_SIM_PARAMS, type SimParams } from "./lib/sim-params";
@@ -12,7 +13,9 @@ import {
   getHandle,
   getDidByHandle,
   truncateHandle,
+  setHandle,
 } from "./lib/handle-resolver";
+import { publicClient } from "./lib/api";
 
 const SHOW_DEBUG_CONTROLS = new URLSearchParams(window.location.search).has(
   "debugControls",
@@ -22,9 +25,23 @@ export default function App() {
   const [params, setParams] = useState<SimParams>(DEFAULT_SIM_PARAMS);
   const reheatRef = useRef<(() => void) | null>(null);
   const focusNodeRef = useRef<((did: string | undefined) => void) | null>(null);
+  const fitViewRef = useRef<((duration?: number) => void) | null>(null);
 
-  const { cosmoNodes, cosmoLinks, allNodes, allLinks, status, rebuild } =
-    useVouchGraph(params.nodeSizeMin, params.nodeSizeMax, params.nodeSizeScale);
+  const auth = useAuth();
+
+  const {
+    cosmoNodes,
+    cosmoLinks,
+    allNodes,
+    allLinks,
+    status,
+    rebuild,
+    queueAutoRebuild,
+  } = useVouchGraph(
+    params.nodeSizeMin,
+    params.nodeSizeMax,
+    params.nodeSizeScale,
+  );
 
   const {
     highlight,
@@ -54,19 +71,24 @@ export default function App() {
   const selectNode = useCallback(
     (did: string) => {
       const index = nodeIdToIndex.get(did);
-      if (index === undefined) return;
-      selectedDidRef.current = did;
-      highlightNode(index);
-      focusNodeRef.current?.(did);
-      const node = allNodes[index];
-      if (node) {
-        fetchProfile(node.id);
-        const handle = getHandle(node.id) ?? node.id;
-        window.history.pushState(null, "", `#${handle}`);
-        document.title = `vouchgraph: ${truncateHandle(handle)}`;
+      const handle = getHandle(did) ?? did;
+      if (index !== undefined) {
+        // On-graph node
+        selectedDidRef.current = did;
+        highlightNode(index);
+        focusNodeRef.current?.(did);
+        fetchProfile(did);
+      } else {
+        // Off-graph node — show profile without graph highlighting
+        selectedDidRef.current = did;
+        clearHighlight();
+        focusNodeRef.current?.(undefined);
+        fetchProfile(did);
       }
+      window.history.pushState(null, "", `#${handle}`);
+      document.title = `vouchgraph: ${truncateHandle(handle)}`;
     },
-    [highlightNode, allNodes, fetchProfile, nodeIdToIndex],
+    [highlightNode, clearHighlight, fetchProfile, nodeIdToIndex],
   );
 
   const previewNode = useCallback(
@@ -111,6 +133,9 @@ export default function App() {
     document.title = "vouchgraph";
   }, [highlight, clearHighlight, clearProfile]);
 
+  // Auto-select own node on login when no hash is set
+  const autoSelectedRef = useRef(false);
+
   // Sync selection from URL hash (initial load + back/forward navigation)
   useEffect(() => {
     if (status.loading || allNodes.length === 0) return;
@@ -119,6 +144,17 @@ export default function App() {
       const hash = decodeURIComponent(window.location.hash.slice(1));
       if (!hash) {
         // Hash cleared (e.g. back to no selection)
+        // Auto-select own node if logged in and on graph
+        if (
+          auth.did &&
+          !autoSelectedRef.current &&
+          nodeIdToIndex.has(auth.did)
+        ) {
+          autoSelectedRef.current = true;
+          selectNode(auth.did);
+          return;
+        }
+
         selectedDidRef.current = undefined;
         clearHighlight();
         clearProfile();
@@ -130,19 +166,37 @@ export default function App() {
       // Try as DID first, then as handle
       let did = nodeIdToIndex.has(hash) ? hash : undefined;
       if (!did) did = getDidByHandle(hash);
-      if (!did) return;
+      // Also try as a raw DID for off-graph users
+      if (!did && hash.startsWith("did:")) did = hash;
+
+      if (!did) {
+        // Hash might be an off-graph handle — resolve it async
+        resolveOffGraphHandle(hash);
+        return;
+      }
 
       // Avoid re-selecting the same node
       if (did === selectedDidRef.current) return;
 
-      const index = nodeIdToIndex.get(did);
-      if (index === undefined) return;
-      selectedDidRef.current = did;
-      highlightNode(index);
-      focusNodeRef.current?.(did);
-      fetchProfile(did);
-      const handle = getHandle(did) ?? did;
-      document.title = `vouchgraph: ${truncateHandle(handle)}`;
+      selectNode(did);
+    };
+
+    const resolveOffGraphHandle = async (handle: string) => {
+      // Looks like a handle (contains a dot, doesn't start with did:)
+      if (!handle.includes(".") || handle.startsWith("did:")) return;
+      try {
+        const res = await publicClient.get(
+          "com.atproto.identity.resolveHandle",
+          { params: { handle: handle as `${string}.${string}` } },
+        );
+        if (res.ok) {
+          const resolved = (res.data as unknown as { did: string }).did;
+          setHandle(resolved, handle);
+          selectNode(resolved);
+        }
+      } catch {
+        // Handle not found
+      }
     };
 
     selectFromHash();
@@ -157,7 +211,35 @@ export default function App() {
     fetchProfile,
     clearHighlight,
     clearProfile,
+    auth.did,
+    selectNode,
   ]);
+
+  // Re-highlight selected node after graph rebuild if its on-graph status changed
+  useEffect(() => {
+    const did = selectedDidRef.current;
+    if (!did) return;
+    const index = nodeIdToIndex.get(did);
+    if (index !== undefined) {
+      // Node is (now) on-graph — ensure it's highlighted
+      highlightNode(index);
+      focusNodeRef.current?.(did);
+    }
+  }, [nodeIdToIndex, highlightNode]);
+
+  // Fit view after rebuild completes
+  const wasRebuildingRef = useRef(false);
+  useEffect(() => {
+    if (status.rebuilding) {
+      wasRebuildingRef.current = true;
+    } else if (wasRebuildingRef.current) {
+      wasRebuildingRef.current = false;
+      setTimeout(
+        () => fitViewRef.current?.(FIT_VIEW_DURATION),
+        FIT_VIEW_DURATION,
+      );
+    }
+  }, [status.rebuilding]);
 
   const handleReheat = useCallback(() => {
     reheatRef.current?.();
@@ -182,6 +264,7 @@ export default function App() {
           onFocusNodeRef={focusNodeRef}
           onBackgroundClick={handleBackgroundClick}
           onReheatRef={reheatRef}
+          onFitViewRef={fitViewRef}
         />
 
         {SHOW_DEBUG_CONTROLS && !status.loading && (
@@ -206,6 +289,9 @@ export default function App() {
         profileCache={profileCache}
         onPreviewDid={previewNode}
         onClearPreview={clearPreview}
+        auth={auth}
+        queueAutoRebuild={queueAutoRebuild}
+        nodeIdToIndex={nodeIdToIndex}
       />
     </div>
   );

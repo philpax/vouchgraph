@@ -34,6 +34,7 @@ export interface VouchGraphStatus {
   nodeCount: number;
   edgeCount: number;
   pendingChanges: boolean;
+  autoRebuildQueued: boolean;
 }
 
 export interface VouchGraphResult {
@@ -46,6 +47,8 @@ export interface VouchGraphResult {
   status: VouchGraphStatus;
   /** Promote live data into the Cosmograph snapshot */
   rebuild: () => void;
+  /** Queue an auto-rebuild that fires on the next Jetstream event */
+  queueAutoRebuild: () => void;
 }
 
 function linkKey(from: string, to: string): string {
@@ -209,6 +212,7 @@ export function useVouchGraph(
     nodeCount: 0,
     edgeCount: 0,
     pendingChanges: false,
+    autoRebuildQueued: false,
   });
 
   // Graph data — only changes on initial load or rebuild
@@ -228,6 +232,8 @@ export function useVouchGraph(
   const sizeParamsRef = useRef({ nodeSizeMin, nodeSizeMax, nodeSizeScale });
   sizeParamsRef.current = { nodeSizeMin, nodeSizeMax, nodeSizeScale };
 
+  const autoRebuildRef = useRef(false);
+
   // Rebuild: resolve all unresolved handles, then promote live data into the Cosmograph snapshot
   const rebuild = useCallback(async () => {
     setStatus((s) => ({ ...s, rebuilding: true }));
@@ -245,15 +251,35 @@ export function useVouchGraph(
       await resolveHandles(unresolved);
     }
 
+    // Prune nodes that no longer appear in any edge
+    const linkList = [...linkSetRef.current].map(parseLinkKey);
+    const activeNodes = new Set<string>();
+    for (const link of linkList) {
+      activeNodes.add(link.source);
+      activeNodes.add(link.target);
+    }
+    nodeSetRef.current = activeNodes;
+
     const {
       nodeSizeMin: sm,
       nodeSizeMax: sM,
       nodeSizeScale: sS,
     } = sizeParamsRef.current;
-    const linkList = [...linkSetRef.current].map(parseLinkKey);
     const data = buildNodesAndLinks(nodeSetRef.current, linkList, sm, sM, sS);
     setGraphData(data);
-    setStatus((s) => ({ ...s, pendingChanges: false, rebuilding: false }));
+    setStatus((s) => ({
+      ...s,
+      pendingChanges: false,
+      rebuilding: false,
+      autoRebuildQueued: false,
+      nodeCount: nodeSetRef.current.size,
+      edgeCount: linkSetRef.current.size,
+    }));
+  }, []);
+
+  const queueAutoRebuild = useCallback(() => {
+    autoRebuildRef.current = true;
+    setStatus((s) => ({ ...s, autoRebuildQueued: true }));
   }, []);
 
   const scheduleHandleResolve = useCallback(() => {
@@ -368,6 +394,11 @@ export function useVouchGraph(
             }));
 
             scheduleHandleResolve();
+
+            if (autoRebuildRef.current) {
+              autoRebuildRef.current = false;
+              rebuild();
+            }
           },
           onDelete: (did, rkey) => {
             const key = linkKey(did, rkey);
@@ -378,6 +409,11 @@ export function useVouchGraph(
                 pendingChanges: true,
                 edgeCount: linkSetRef.current.size,
               }));
+
+              if (autoRebuildRef.current) {
+                autoRebuildRef.current = false;
+                rebuild();
+              }
             }
           },
           onConnect: () =>
@@ -400,7 +436,7 @@ export function useVouchGraph(
       abortController.abort();
       if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
     };
-  }, [scheduleHandleResolve]);
+  }, [scheduleHandleResolve, rebuild]);
 
   return {
     cosmoNodes: graphData.nodes,
@@ -409,5 +445,6 @@ export function useVouchGraph(
     allLinks: graphData.links,
     status,
     rebuild,
+    queueAutoRebuild,
   };
 }

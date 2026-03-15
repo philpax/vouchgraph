@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hexToRgba, pastelColorFromHue } from "../lib/color";
 import type { VouchNode, VouchLink } from "./useVouchGraph";
 
@@ -109,18 +109,39 @@ export function useGraphHighlight(nodes: VouchNode[], links: VouchLink[]) {
     };
   }, [links, nodeIdToIndex]);
 
+  // Track the currently highlighted DID so we can re-resolve after rebuild
+  const highlightedDidRef = useRef<string | null>(null);
+
   const highlightNode = useCallback(
     (index: number) => {
+      highlightedDidRef.current = nodes[index]?.id ?? null;
       const outboundDist = bfs(index, outboundAdj);
       const inboundDist = bfs(index, inboundAdj);
       setHighlight({ outboundDist, inboundDist, center: index });
     },
-    [outboundAdj, inboundAdj],
+    [nodes, outboundAdj, inboundAdj],
   );
 
   const clearHighlight = useCallback(() => {
+    highlightedDidRef.current = null;
     setHighlight(null);
   }, []);
+
+  // Re-run BFS when graph changes (e.g. after rebuild).
+  // Re-resolve DID → index since indices shift when nodes are rebuilt.
+  useEffect(() => {
+    const did = highlightedDidRef.current;
+    if (!did) return;
+    const index = nodeIdToIndex.get(did);
+    if (index !== undefined) {
+      const outboundDist = bfs(index, outboundAdj);
+      const inboundDist = bfs(index, inboundAdj);
+      setHighlight({ outboundDist, inboundDist, center: index });
+    } else {
+      // Node no longer on graph (e.g. unvouched and removed)
+      setHighlight(null);
+    }
+  }, [nodeIdToIndex, outboundAdj, inboundAdj]);
 
   const showLabelsFor = useMemo(() => {
     if (!highlight) return undefined;

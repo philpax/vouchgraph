@@ -8,6 +8,10 @@ export function getHandle(did: string): string | undefined {
   return cache.get(did);
 }
 
+export function setHandle(did: string, handle: string): void {
+  cache.set(did, handle);
+}
+
 export async function resolveHandles(dids: string[]): Promise<void> {
   const unresolved = dids.filter((d) => !cache.has(d));
   if (unresolved.length === 0) return;

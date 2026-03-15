@@ -12,6 +12,9 @@ import type { HighlightState } from "../hooks/useGraphHighlight";
 import { hexToRgba } from "../lib/color";
 import "./vouch-graph.css";
 
+/** Duration in ms for fitView animations (used on init and after rebuild). */
+export const FIT_VIEW_DURATION = 2000;
+
 const LABEL_COLOR = "rgba(255,255,255,0.9)";
 const LABEL_OPACITY_DECAY = 0.5;
 
@@ -33,6 +36,7 @@ interface VouchGraphProps {
   onFocusNodeRef?: React.MutableRefObject<
     ((did: string | undefined) => void) | null
   >;
+  onFitViewRef?: React.MutableRefObject<((duration?: number) => void) | null>;
 }
 
 export function VouchGraph({
@@ -64,6 +68,7 @@ function VouchGraphInner({
   onBackgroundClick,
   onReheatRef,
   onFocusNodeRef,
+  onFitViewRef,
 }: Omit<VouchGraphProps, "links" | "loading">) {
   const cosmographRef = useRef<CosmographRef<VouchNode, VouchLink>>(undefined);
   const { cosmograph } = useCosmograph<VouchNode, VouchLink>()!;
@@ -76,6 +81,14 @@ function VouchGraphInner({
       onReheatRef.current = () => cosmographRef.current?.start();
     }
   }, [onReheatRef]);
+
+  // Expose fitView to parent
+  useEffect(() => {
+    if (onFitViewRef) {
+      onFitViewRef.current = (duration?: number) =>
+        cosmographRef.current?.fitView(duration);
+    }
+  }, [onFitViewRef]);
 
   // Expose focus node to parent
   useEffect(() => {
@@ -137,7 +150,7 @@ function VouchGraphInner({
       renderHoveredNodeRing
       hoveredNodeRingColor="#ffffff"
       fitViewOnInit
-      fitViewDelay={2000}
+      fitViewDelay={FIT_VIEW_DURATION}
       simulationGravity={params.simulationGravity}
       simulationRepulsion={params.simulationRepulsion}
       simulationFriction={params.simulationFriction}

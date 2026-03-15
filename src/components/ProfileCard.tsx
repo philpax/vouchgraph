@@ -1,12 +1,14 @@
 import type { AppBskyActorDefs } from "@atcute/bluesky";
+import type { ReactNode } from "react";
 import { truncateHandle } from "../lib/handle-resolver";
 
 interface ProfileCardProps {
   profile: AppBskyActorDefs.ProfileViewDetailed;
   compact?: boolean;
+  badge?: ReactNode;
 }
 
-export function ProfileCard({ profile, compact }: ProfileCardProps) {
+export function ProfileCard({ profile, compact, badge }: ProfileCardProps) {
   return (
     <div>
       <div className="flex gap-2.5 items-center mb-2">
@@ -25,14 +27,17 @@ export function ProfileCard({ profile, compact }: ProfileCardProps) {
               {profile.displayName}
             </div>
           )}
-          <a
-            href={`https://bsky.app/profile/${profile.handle}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-indigo-400 text-sm no-underline"
-          >
-            @{truncateHandle(profile.handle)}
-          </a>
+          <div className="flex items-center gap-1.5">
+            <a
+              href={`https://bsky.app/profile/${profile.handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 text-sm no-underline truncate"
+            >
+              @{truncateHandle(profile.handle)}
+            </a>
+            {badge}
+          </div>
         </div>
       </div>
       {profile.description && (
