@@ -606,14 +606,11 @@ function InfoContent({
           .
         </div>
         {!auth.did && (
-          <div className="flex flex-col gap-0.5">
-            <div className="text-white/50">
-              Log in with Bluesky to vouch for people directly from the graph.
-            </div>
-            <LoginSection auth={auth} />
+          <div>
+            Log in with Bluesky to vouch for people directly from the graph.
           </div>
         )}
-        {auth.did && <LoginSection auth={auth} />}
+        <LoginSection auth={auth} />
         {auth.error && <div className="text-red-400 text-xs">{auth.error}</div>}
         {status.pendingChanges && (
           <div className="text-xs text-white/50">
