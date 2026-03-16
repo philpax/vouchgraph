@@ -55,6 +55,8 @@ export default function App() {
   } = useGraphHighlight(allNodes, allLinks);
 
   const profileCache = useProfileCache();
+  const profileCacheRef = useRef(profileCache);
+  profileCacheRef.current = profileCache;
 
   const {
     profile,
@@ -99,6 +101,9 @@ export default function App() {
       focusNodeRef.current?.(did);
       if (!selectedDidRef.current) {
         fetchProfile(did);
+      } else {
+        // Still fetch into cache so the graph label gets an avatar
+        profileCacheRef.current.fetch(did);
       }
     },
     [highlightNode, nodeIdToIndex, fetchProfile],

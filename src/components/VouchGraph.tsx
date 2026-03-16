@@ -330,5 +330,9 @@ function useVouchLabelPatch(
       this._hoveredCssLabel.draw();
     };
 
+    // Force an immediate label redraw so new avatars appear without
+    // waiting for the next zoom/tick event from Cosmograph.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (cosmograph as unknown as any)._renderLabels();
   }, [cosmograph, highlight, nodeIdToIndex, nodeColorFn, getAvatar, cacheVersion]);
 }
