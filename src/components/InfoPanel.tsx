@@ -295,6 +295,38 @@ export function InfoPanel({
   );
 }
 
+function PermissionNotice() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="text-xs text-amber-400/70">
+      <span>
+        Bluesky will report that all permissions are requested due to{" "}
+        <a
+          href="https://github.com/bluesky-social/atproto/issues/4479"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          an issue
+        </a>{" "}
+        in the reference PDS.{" "}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-amber-400/50 hover:text-amber-400/70 cursor-pointer transition-colors"
+        >
+          [{expanded ? "hide" : "more"}]
+        </button>
+      </span>
+      {expanded && (
+        <div className="mt-1 text-amber-400/50">
+          vouchgraph only creates and deletes vouch records on api.atvouch.dev
+          and never interacts with your Bluesky data.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoginSection({ auth }: { auth: InfoPanelProps["auth"] }) {
   const [handle, setHandle] = useState("");
   const [suggestions, setSuggestions] = useState<TypeaheadActor[]>([]);
@@ -606,8 +638,11 @@ function InfoContent({
           .
         </div>
         {!auth.did && (
-          <div>
-            Log in with Bluesky to vouch for people directly from the graph.
+          <div className="flex flex-col gap-0.5">
+            <div>
+              Log in with Bluesky to vouch for people directly from the graph.
+            </div>
+            <PermissionNotice />
           </div>
         )}
         <LoginSection auth={auth} />
