@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppBskyActorDefs } from "@atcute/bluesky";
 import type { useProfileCache } from "./useProfileCache";
 
@@ -16,7 +16,9 @@ export function useSelectedProfile(
   });
   const abortRef = useRef<AbortController | null>(null);
   const cacheRef = useRef(profileCache);
-  cacheRef.current = profileCache;
+  useEffect(() => {
+    cacheRef.current = profileCache;
+  }, [profileCache]);
 
   const fetchProfile = useCallback((did: string) => {
     abortRef.current?.abort();
@@ -33,8 +35,7 @@ export function useSelectedProfile(
       })
       .catch(() => {})
       .finally(() => {
-        if (!abort.signal.aborted)
-          setState((s) => ({ ...s, loading: false }));
+        if (!abort.signal.aborted) setState((s) => ({ ...s, loading: false }));
       });
   }, []);
 

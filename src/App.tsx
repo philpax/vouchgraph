@@ -56,7 +56,9 @@ export default function App() {
 
   const profileCache = useProfileCache();
   const profileCacheRef = useRef(profileCache);
-  profileCacheRef.current = profileCache;
+  useEffect(() => {
+    profileCacheRef.current = profileCache;
+  }, [profileCache]);
 
   const {
     profile,

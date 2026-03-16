@@ -77,7 +77,14 @@ function VouchGraphInner({
   const cosmographRef = useRef<CosmographRef<VouchNode, VouchLink>>(undefined);
   const { cosmograph } = useCosmograph<VouchNode, VouchLink>()!;
 
-  useVouchLabelPatch(cosmograph, highlight, nodeIdToIndex, nodeColorFn, getAvatar, cacheVersion);
+  useVouchLabelPatch(
+    cosmograph,
+    highlight,
+    nodeIdToIndex,
+    nodeColorFn,
+    getAvatar,
+    cacheVersion,
+  );
 
   // Expose reheat to parent
   useEffect(() => {
@@ -189,7 +196,8 @@ function useVouchLabelPatch(
   useEffect(() => {
     if (!cosmograph) return;
 
-    const avatarStyle = "width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px;display:inline-block;flex-shrink:0;";
+    const avatarStyle =
+      "width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px;display:inline-block;flex-shrink:0;";
 
     const getNodeLabelText = (node: VouchNode, text: string) => {
       const avatarUrl = getAvatar(node.id);
@@ -318,7 +326,9 @@ function useVouchLabelPatch(
         const screenPosition = this.spaceToScreenPosition(
           nodeSpacePosition,
         ) as [number, number];
-        this._hoveredCssLabel.setText(getNodeLabelText(node, nodeLabelAccessor?.(node) ?? node.id));
+        this._hoveredCssLabel.setText(
+          getNodeLabelText(node, nodeLabelAccessor?.(node) ?? node.id),
+        );
         this._hoveredCssLabel.setVisibility(true);
         this._hoveredCssLabel.setPosition(screenPosition[0], screenPosition[1]);
         this._hoveredCssLabel.setClassName("vouch-label vouch-hovered-label");
@@ -334,5 +344,12 @@ function useVouchLabelPatch(
     // waiting for the next zoom/tick event from Cosmograph.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (cosmograph as unknown as any)._renderLabels();
-  }, [cosmograph, highlight, nodeIdToIndex, nodeColorFn, getAvatar, cacheVersion]);
+  }, [
+    cosmograph,
+    highlight,
+    nodeIdToIndex,
+    nodeColorFn,
+    getAvatar,
+    cacheVersion,
+  ]);
 }

@@ -108,8 +108,14 @@ export function useProfileCache() {
   // Stable object reference — individual callbacks are already stable via useCallback.
   // tick is included so consumers re-render when cache updates.
   return useMemo(
-    () => ({ get, fetch, fetchBatch, getAvatar, getDisplayName, cacheVersion: tick }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => ({
+      get,
+      fetch,
+      fetchBatch,
+      getAvatar,
+      getDisplayName,
+      cacheVersion: tick,
+    }),
     [get, fetch, fetchBatch, getAvatar, getDisplayName, tick],
   );
 }
