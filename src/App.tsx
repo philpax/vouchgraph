@@ -258,6 +258,8 @@ export default function App() {
           nodeIdToIndex={nodeIdToIndex}
           nodeColorFn={nodeColorFn}
           linkColorFn={linkColorFn}
+          getAvatar={profileCache.getAvatar}
+          cacheVersion={profileCache.cacheVersion}
           onNodeClick={selectNode}
           onNodeHover={previewNode}
           onNodeHoverEnd={clearPreview}

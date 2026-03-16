@@ -3,6 +3,10 @@
   padding: 2px 6px !important;
   margin: 0 !important;
   border-radius: 4px;
+  line-height: 16px;
+  white-space: nowrap;
+  display: flex !important;
+  align-items: center;
 }
 
 .vouch-label:hover {

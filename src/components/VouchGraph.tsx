@@ -28,6 +28,8 @@ interface VouchGraphProps {
   nodeIdToIndex: Map<string, number>;
   nodeColorFn: (node: VouchNode) => string;
   linkColorFn: (link: VouchLink) => string;
+  getAvatar: (did: string) => string | undefined;
+  cacheVersion: number;
   onNodeClick: (did: string) => void;
   onNodeHover?: (did: string) => void;
   onNodeHoverEnd?: () => void;
@@ -62,6 +64,8 @@ function VouchGraphInner({
   nodeIdToIndex,
   nodeColorFn,
   linkColorFn,
+  getAvatar,
+  cacheVersion,
   onNodeClick,
   onNodeHover,
   onNodeHoverEnd,
@@ -73,7 +77,7 @@ function VouchGraphInner({
   const cosmographRef = useRef<CosmographRef<VouchNode, VouchLink>>(undefined);
   const { cosmograph } = useCosmograph<VouchNode, VouchLink>()!;
 
-  useVouchLabelPatch(cosmograph, highlight, nodeIdToIndex, nodeColorFn);
+  useVouchLabelPatch(cosmograph, highlight, nodeIdToIndex, nodeColorFn, getAvatar, cacheVersion);
 
   // Expose reheat to parent
   useEffect(() => {
@@ -179,9 +183,21 @@ function useVouchLabelPatch(
   highlight: HighlightState | null,
   nodeIdToIndex: Map<string, number>,
   nodeColorFn: (node: VouchNode) => string,
+  getAvatar: (did: string) => string | undefined,
+  cacheVersion: number,
 ) {
   useEffect(() => {
     if (!cosmograph) return;
+
+    const avatarStyle = "width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:4px;display:inline-block;flex-shrink:0;";
+
+    const getNodeLabelText = (node: VouchNode, text: string) => {
+      const avatarUrl = getAvatar(node.id);
+      if (avatarUrl) {
+        return `<img src="${avatarUrl}" style="${avatarStyle}object-fit:cover;">${text}`;
+      }
+      return `<span style="${avatarStyle}background:#555;"></span>${text}`;
+    };
 
     const getNodeLabelStyle = (node: VouchNode, isVisible: boolean) => {
       const color = nodeColorFn(node);
@@ -268,7 +284,7 @@ function useVouchLabelPatch(
 
           return {
             id: node.id,
-            text: text ?? "",
+            text: getNodeLabelText(node, text ?? ""),
             x: screenPosition[0],
             y: screenPosition[1],
             weight:
@@ -302,7 +318,7 @@ function useVouchLabelPatch(
         const screenPosition = this.spaceToScreenPosition(
           nodeSpacePosition,
         ) as [number, number];
-        this._hoveredCssLabel.setText(nodeLabelAccessor?.(node) ?? node.id);
+        this._hoveredCssLabel.setText(getNodeLabelText(node, nodeLabelAccessor?.(node) ?? node.id));
         this._hoveredCssLabel.setVisibility(true);
         this._hoveredCssLabel.setPosition(screenPosition[0], screenPosition[1]);
         this._hoveredCssLabel.setClassName("vouch-label vouch-hovered-label");
@@ -313,5 +329,6 @@ function useVouchLabelPatch(
       }
       this._hoveredCssLabel.draw();
     };
-  }, [cosmograph, highlight, nodeIdToIndex, nodeColorFn]);
+
+  }, [cosmograph, highlight, nodeIdToIndex, nodeColorFn, getAvatar, cacheVersion]);
 }
