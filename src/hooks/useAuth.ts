@@ -17,6 +17,11 @@ export interface AuthState {
   error: string | null;
 }
 
+export type Auth = AuthState & {
+  login: (handle: string) => Promise<void>;
+  logout: () => Promise<void>;
+};
+
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
     agent: null,
