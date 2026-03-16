@@ -54,14 +54,14 @@ export default function App() {
     nodeIdToIndex,
   } = useGraphHighlight(allNodes, allLinks);
 
+  const profileCache = useProfileCache();
+
   const {
     profile,
     loading: profileLoading,
     fetchProfile,
     clearProfile,
-  } = useSelectedProfile();
-
-  const profileCache = useProfileCache();
+  } = useSelectedProfile(profileCache);
 
   const nodeDids = useMemo(() => allNodes.map((n) => n.id), [allNodes]);
 
