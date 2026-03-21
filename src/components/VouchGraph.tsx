@@ -38,7 +38,9 @@ interface VouchGraphProps {
   onFocusNodeRef?: React.MutableRefObject<
     ((did: string | undefined) => void) | null
   >;
-  onFitViewRef?: React.MutableRefObject<((duration?: number) => void) | null>;
+  onFitViewRef?: React.MutableRefObject<
+    ((duration?: number, nodeIds?: string[]) => void) | null
+  >;
 }
 
 export function VouchGraph({
@@ -96,8 +98,13 @@ function VouchGraphInner({
   // Expose fitView to parent
   useEffect(() => {
     if (onFitViewRef) {
-      onFitViewRef.current = (duration?: number) =>
-        cosmographRef.current?.fitView(duration);
+      onFitViewRef.current = (duration?: number, nodeIds?: string[]) => {
+        if (nodeIds && nodeIds.length > 0) {
+          cosmographRef.current?.fitViewByNodeIds(nodeIds, duration);
+        } else {
+          cosmographRef.current?.fitView(duration);
+        }
+      };
     }
   }, [onFitViewRef]);
 

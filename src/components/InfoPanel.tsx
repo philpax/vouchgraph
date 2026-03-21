@@ -31,6 +31,7 @@ interface InfoPanelProps {
   onClearPreview?: () => void;
   auth: Auth;
   queueAutoRebuild: () => void;
+  onFitViewNodes?: (ids: string[]) => void;
   nodeIdToIndex: Map<string, number>;
 }
 
@@ -119,6 +120,7 @@ function ProfileSection({
   onClearPreview,
   auth,
   queueAutoRebuild,
+  onFitViewNodes,
   nodeIdToIndex,
   layout = "inline",
 }: {
@@ -132,6 +134,7 @@ function ProfileSection({
   onClearPreview?: () => void;
   auth: Auth;
   queueAutoRebuild: () => void;
+  onFitViewNodes?: (ids: string[]) => void;
   nodeIdToIndex: Map<string, number>;
   layout?: "inline" | "tabs";
 }) {
@@ -191,6 +194,7 @@ function ProfileSection({
                 profile={profile}
                 vouchDetails={vouchDetails}
                 queueAutoRebuild={queueAutoRebuild}
+                onFitViewNodes={onFitViewNodes}
               />
             </>
           )}
@@ -333,6 +337,7 @@ export function InfoPanel({
   onClearPreview,
   auth,
   queueAutoRebuild,
+  onFitViewNodes,
   nodeIdToIndex,
 }: InfoPanelProps) {
   const hasSelection = !!profile || profileLoading;
@@ -457,6 +462,7 @@ export function InfoPanel({
     onClearPreview,
     auth,
     queueAutoRebuild,
+    onFitViewNodes,
     nodeIdToIndex,
   };
 

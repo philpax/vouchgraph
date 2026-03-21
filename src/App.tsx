@@ -25,7 +25,11 @@ export default function App() {
   const [params, setParams] = useState<SimParams>(DEFAULT_SIM_PARAMS);
   const reheatRef = useRef<(() => void) | null>(null);
   const focusNodeRef = useRef<((did: string | undefined) => void) | null>(null);
-  const fitViewRef = useRef<((duration?: number) => void) | null>(null);
+  const fitViewRef = useRef<
+    ((duration?: number, nodeIds?: string[]) => void) | null
+  >(null);
+  /** Node IDs to focus on after the next rebuild (e.g. vouch source + target). */
+  const fitViewNodesRef = useRef<string[] | null>(null);
 
   const auth = useAuth();
 
@@ -241,8 +245,10 @@ export default function App() {
       wasRebuildingRef.current = true;
     } else if (wasRebuildingRef.current) {
       wasRebuildingRef.current = false;
+      const nodeIds = fitViewNodesRef.current;
+      fitViewNodesRef.current = null;
       setTimeout(
-        () => fitViewRef.current?.(FIT_VIEW_DURATION),
+        () => fitViewRef.current?.(FIT_VIEW_DURATION, nodeIds ?? undefined),
         FIT_VIEW_DURATION,
       );
     }
@@ -300,6 +306,9 @@ export default function App() {
         onClearPreview={clearPreview}
         auth={auth}
         queueAutoRebuild={queueAutoRebuild}
+        onFitViewNodes={(ids) => {
+          fitViewNodesRef.current = ids;
+        }}
         nodeIdToIndex={nodeIdToIndex}
       />
     </div>

@@ -10,11 +10,13 @@ export function VouchButton({
   profile,
   vouchDetails,
   queueAutoRebuild,
+  onFitViewNodes,
 }: {
   auth: Auth;
   profile: AppBskyActorDefs.ProfileViewDetailed;
   vouchDetails: Map<string, { inbound: string[]; outbound: string[] }>;
   queueAutoRebuild: () => void;
+  onFitViewNodes?: (ids: string[]) => void;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [unvouching, setUnvouching] = useState(false);
@@ -26,6 +28,7 @@ export function VouchButton({
 
   const handleVouch = async () => {
     await createVouch(auth.agent!, profile.did);
+    onFitViewNodes?.([auth.did!, profile.did]);
     queueAutoRebuild();
     setShowModal(false);
   };
