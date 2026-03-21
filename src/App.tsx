@@ -272,6 +272,7 @@ export default function App() {
           nodeColorFn={nodeColorFn}
           linkColorFn={linkColorFn}
           getAvatar={profileCache.getAvatar}
+          fetchAvatarBatch={profileCache.fetchBatch}
           cacheVersion={profileCache.cacheVersion}
           onNodeClick={selectNode}
           onNodeHover={previewNode}

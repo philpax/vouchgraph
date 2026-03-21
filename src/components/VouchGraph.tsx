@@ -29,6 +29,7 @@ interface VouchGraphProps {
   nodeColorFn: (node: VouchNode) => string;
   linkColorFn: (link: VouchLink) => string;
   getAvatar: (did: string) => string | undefined;
+  fetchAvatarBatch: (dids: string[], signal?: AbortSignal) => Promise<void>;
   cacheVersion: number;
   onNodeClick: (did: string) => void;
   onNodeHover?: (did: string) => void;
@@ -67,6 +68,7 @@ function VouchGraphInner({
   nodeColorFn,
   linkColorFn,
   getAvatar,
+  fetchAvatarBatch,
   cacheVersion,
   onNodeClick,
   onNodeHover,
@@ -85,6 +87,7 @@ function VouchGraphInner({
     nodeIdToIndex,
     nodeColorFn,
     getAvatar,
+    fetchAvatarBatch,
     cacheVersion,
   );
 
@@ -192,14 +195,39 @@ function VouchGraphInner({
  *
  * Adapted from genresinspace's Graph.tsx.
  */
+/** Max DIDs to fetch per interval tick. */
+const AVATAR_BATCH_SIZE = 25;
+/** How often (ms) to drain the visible-but-uncached avatar queue. */
+const AVATAR_FETCH_INTERVAL = 1000;
+
 function useVouchLabelPatch(
   cosmograph: RawCosmograph<VouchNode, VouchLink> | undefined,
   highlight: HighlightState | null,
   nodeIdToIndex: Map<string, number>,
   nodeColorFn: (node: VouchNode) => string,
   getAvatar: (did: string) => string | undefined,
+  fetchAvatarBatch: (dids: string[], signal?: AbortSignal) => Promise<void>,
   cacheVersion: number,
 ) {
+  // Queue of visible DIDs whose avatars haven't been fetched yet.
+  const pendingAvatarsRef = useRef<Set<string>>(new Set());
+
+  // Periodically drain the queue.
+  useEffect(() => {
+    const abort = new AbortController();
+    const timer = setInterval(() => {
+      const pending = pendingAvatarsRef.current;
+      if (pending.size === 0) return;
+      const batch = [...pending].slice(0, AVATAR_BATCH_SIZE);
+      for (const did of batch) pending.delete(did);
+      fetchAvatarBatch(batch, abort.signal);
+    }, AVATAR_FETCH_INTERVAL);
+    return () => {
+      clearInterval(timer);
+      abort.abort();
+    };
+  }, [fetchAvatarBatch]);
+
   useEffect(() => {
     if (!cosmograph) return;
 
@@ -315,6 +343,13 @@ function useVouchLabelPatch(
           };
         },
       );
+      // Queue visible labels missing avatars for lazy fetching.
+      for (const [node] of nodeToLabelInfo) {
+        if (!getAvatar(node.id)) {
+          pendingAvatarsRef.current.add(node.id);
+        }
+      }
+
       this._cssLabelsRenderer.setLabels(labels);
       this._cssLabelsRenderer.draw(true);
     };
