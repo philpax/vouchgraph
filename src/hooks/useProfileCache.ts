@@ -3,7 +3,7 @@ import { publicClient } from "../lib/api";
 import type { AppBskyActorDefs } from "@atcute/bluesky";
 import type { Did } from "@atcute/lexicons";
 
-const CACHE_SIZE = 250;
+const CACHE_SIZE = 1000;
 const BATCH_SIZE = 25;
 
 interface CacheEntry {
