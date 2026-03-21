@@ -252,7 +252,14 @@ function InfoContent({
       <div className="flex items-center gap-2.5 mb-2">
         <img src="./vouchgraph-icon.svg" alt="" className="w-9 h-9 shrink-0" />
         <div>
-          <div className="font-bold text-lg leading-tight">vouchgraph</div>
+          <a
+            href="https://github.com/philpax/vouchgraph"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-lg leading-tight text-indigo-400 no-underline hover:text-indigo-300 transition-colors"
+          >
+            vouchgraph
+          </a>
           <div className="text-xs text-white/50">
             by{" "}
             <a href="#philpax.me" className="text-indigo-400 no-underline">
