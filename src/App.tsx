@@ -131,7 +131,6 @@ export default function App() {
   }, [highlightNode, clearHighlight, clearProfile, nodeIdToIndex]);
 
   const handleBackgroundClick = useCallback(() => {
-    if (!highlight) return;
     selectedDidRef.current = undefined;
     clearHighlight();
     clearProfile();
@@ -142,7 +141,7 @@ export default function App() {
       window.location.pathname + window.location.search,
     );
     document.title = "vouchgraph";
-  }, [highlight, clearHighlight, clearProfile]);
+  }, [clearHighlight, clearProfile]);
 
   // Auto-select own node on login when no hash is set
   const autoSelectedRef = useRef(false);
