@@ -1,21 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 630" width="630" height="630">
-  <rect width="630" height="630" fill="#0f1729"/>
-
-  <!-- Edges (60% opacity) -->
-  <line x1="124" y1="123" x2="315" y2="507" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="4.5"/>
-  <line x1="506" y1="123" x2="315" y2="507" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="4.5"/>
-
-  <!-- Arrow: top-left → bottom-center -->
-  <g transform="translate(219.5, 315) rotate(63.4)">
-    <polygon points="-11,-8.5 11,0 -11,8.5" fill="#c4b5fd" fill-opacity="0.6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0f1729"/>
+  <line x1="86.0" y1="108.8" x2="256.0" y2="403.2" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="4.5"/>
+  <line x1="256.0" y1="403.2" x2="426.0" y2="108.8" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="4.5"/>
+  <g transform="translate(171.0, 256.0) rotate(60.0)">
+    <polygon points="11,0 -8.47,8.47 -8.47,-8.47" fill="#c4b5fd" fill-opacity="0.6"/>
   </g>
-  <!-- Arrow: bottom-center → top-right (flipped) -->
-  <g transform="translate(410.5, 315) rotate(-63.4)">
-    <polygon points="-11,-8.5 11,0 -11,8.5" fill="#c4b5fd" fill-opacity="0.6"/>
+  <g transform="translate(341.0, 256.0) rotate(-60.0)">
+    <polygon points="11,0 -8.47,8.47 -8.47,-8.47" fill="#c4b5fd" fill-opacity="0.6"/>
   </g>
-
-  <!-- Nodes (full opacity) -->
-  <circle cx="124" cy="123" r="26" fill="#c4b5fd"/>
-  <circle cx="506" cy="123" r="26" fill="#c4b5fd"/>
-  <circle cx="315" cy="507" r="26" fill="#c4b5fd"/>
+  <circle cx="86.0" cy="108.8" r="26" fill="#c4b5fd"/>
+  <circle cx="426.0" cy="108.8" r="26" fill="#c4b5fd"/>
+  <circle cx="256.0" cy="403.2" r="26" fill="#c4b5fd"/>
 </svg>
