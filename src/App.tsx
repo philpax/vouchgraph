@@ -25,11 +25,10 @@ export default function App() {
   const [params, setParams] = useState<SimParams>(DEFAULT_SIM_PARAMS);
   const reheatRef = useRef<(() => void) | null>(null);
   const focusNodeRef = useRef<((did: string | undefined) => void) | null>(null);
-  const fitViewRef = useRef<
-    ((duration?: number, nodeIds?: string[]) => void) | null
-  >(null);
-  /** Node IDs to focus on after the next rebuild (e.g. vouch source + target). */
-  const fitViewNodesRef = useRef<string[] | null>(null);
+  const fitViewRef = useRef<((duration?: number) => void) | null>(null);
+  /** DID to zoom to after the next rebuild (e.g. vouch target). */
+  const zoomAfterRebuildRef = useRef<string | null>(null);
+  const zoomToNodeRef = useRef<((did: string) => void) | null>(null);
 
   const auth = useAuth();
 
@@ -145,10 +144,24 @@ export default function App() {
 
   // Auto-select own node on login when no hash is set
   const autoSelectedRef = useRef(false);
+  /** True until the first hash-based selection has been processed. */
+  const isInitialLoadRef = useRef(true);
+  /** Whether we had a hash on page load (disables fitViewOnInit so zoom can take over). */
+  const [hasInitialHash] = useState(
+    () => window.location.hash.slice(1).length > 0,
+  );
 
   // Sync selection from URL hash (initial load + back/forward navigation)
   useEffect(() => {
     if (status.loading || allNodes.length === 0) return;
+
+    const selectAndMaybeZoom = (did: string) => {
+      selectNode(did);
+      if (isInitialLoadRef.current) {
+        isInitialLoadRef.current = false;
+        zoomToNodeRef.current?.(did);
+      }
+    };
 
     const selectFromHash = () => {
       const hash = decodeURIComponent(window.location.hash.slice(1));
@@ -158,10 +171,11 @@ export default function App() {
         if (
           auth.did &&
           !autoSelectedRef.current &&
+          !selectedDidRef.current &&
           nodeIdToIndex.has(auth.did)
         ) {
           autoSelectedRef.current = true;
-          selectNode(auth.did);
+          selectAndMaybeZoom(auth.did);
           return;
         }
 
@@ -188,7 +202,7 @@ export default function App() {
       // Avoid re-selecting the same node
       if (did === selectedDidRef.current) return;
 
-      selectNode(did);
+      selectAndMaybeZoom(did);
     };
 
     const resolveOffGraphHandle = async (handle: string) => {
@@ -202,7 +216,7 @@ export default function App() {
         if (res.ok) {
           const resolved = (res.data as unknown as { did: string }).did;
           setHandle(resolved, handle);
-          selectNode(resolved);
+          selectAndMaybeZoom(resolved);
         }
       } catch {
         // Handle not found
@@ -223,6 +237,7 @@ export default function App() {
     clearProfile,
     auth.did,
     selectNode,
+    hasInitialHash,
   ]);
 
   // Re-highlight selected node after graph rebuild if its on-graph status changed
@@ -237,21 +252,25 @@ export default function App() {
     }
   }, [nodeIdToIndex, highlightNode]);
 
-  // Fit view after rebuild completes
+  // Fit/zoom view after rebuild completes
   const wasRebuildingRef = useRef(false);
   useEffect(() => {
     if (status.rebuilding) {
       wasRebuildingRef.current = true;
     } else if (wasRebuildingRef.current) {
       wasRebuildingRef.current = false;
-      const nodeIds = fitViewNodesRef.current;
-      fitViewNodesRef.current = null;
-      setTimeout(
-        () => fitViewRef.current?.(FIT_VIEW_DURATION, nodeIds ?? undefined),
-        FIT_VIEW_DURATION,
-      );
+      const zoomDid = zoomAfterRebuildRef.current;
+      zoomAfterRebuildRef.current = null;
+      const targetDid = zoomDid ?? selectedDidRef.current;
+      setTimeout(() => {
+        if (targetDid && nodeIdToIndex.has(targetDid)) {
+          zoomToNodeRef.current?.(targetDid);
+        } else {
+          fitViewRef.current?.(FIT_VIEW_DURATION);
+        }
+      }, FIT_VIEW_DURATION);
     }
-  }, [status.rebuilding]);
+  }, [status.rebuilding, nodeIdToIndex]);
 
   const handleReheat = useCallback(() => {
     reheatRef.current?.();
@@ -280,6 +299,8 @@ export default function App() {
           onBackgroundClick={handleBackgroundClick}
           onReheatRef={reheatRef}
           onFitViewRef={fitViewRef}
+          onZoomToNodeRef={zoomToNodeRef}
+          disableFitViewOnInit={hasInitialHash}
         />
 
         {SHOW_DEBUG_CONTROLS && !status.loading && (
@@ -306,8 +327,8 @@ export default function App() {
         onClearPreview={clearPreview}
         auth={auth}
         queueAutoRebuild={queueAutoRebuild}
-        onFitViewNodes={(ids) => {
-          fitViewNodesRef.current = ids;
+        onZoomAfterRebuild={(did) => {
+          zoomAfterRebuildRef.current = did;
         }}
         nodeIdToIndex={nodeIdToIndex}
       />

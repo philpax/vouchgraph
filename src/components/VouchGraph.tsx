@@ -14,6 +14,8 @@ import "./vouch-graph.css";
 
 /** Duration in ms for fitView animations (used on init and after rebuild). */
 export const FIT_VIEW_DURATION = 2000;
+/** Zoom scale used when navigating to a specific node (initial load, post-vouch). */
+export const ZOOM_TO_NODE_SCALE = 12;
 
 const LABEL_COLOR = "rgba(255,255,255,0.9)";
 const LABEL_OPACITY_DECAY = 0.5;
@@ -39,9 +41,9 @@ interface VouchGraphProps {
   onFocusNodeRef?: React.MutableRefObject<
     ((did: string | undefined) => void) | null
   >;
-  onFitViewRef?: React.MutableRefObject<
-    ((duration?: number, nodeIds?: string[]) => void) | null
-  >;
+  onFitViewRef?: React.MutableRefObject<((duration?: number) => void) | null>;
+  onZoomToNodeRef?: React.MutableRefObject<((did: string) => void) | null>;
+  disableFitViewOnInit?: boolean;
 }
 
 export function VouchGraph({
@@ -77,6 +79,8 @@ function VouchGraphInner({
   onReheatRef,
   onFocusNodeRef,
   onFitViewRef,
+  onZoomToNodeRef,
+  disableFitViewOnInit,
 }: Omit<VouchGraphProps, "links" | "loading">) {
   const cosmographRef = useRef<CosmographRef<VouchNode, VouchLink>>(undefined);
   const { cosmograph } = useCosmograph<VouchNode, VouchLink>()!;
@@ -101,15 +105,88 @@ function VouchGraphInner({
   // Expose fitView to parent
   useEffect(() => {
     if (onFitViewRef) {
-      onFitViewRef.current = (duration?: number, nodeIds?: string[]) => {
-        if (nodeIds && nodeIds.length > 0) {
-          cosmographRef.current?.fitViewByNodeIds(nodeIds, duration);
-        } else {
-          cosmographRef.current?.fitView(duration);
-        }
+      onFitViewRef.current = (duration?: number) => {
+        cosmographRef.current?.fitView(duration);
       };
     }
   }, [onFitViewRef]);
+
+  // Expose zoomToNode to parent (for initial load / post-vouch).
+  // Smoothly zooms in while following the node until the user interacts.
+  const followRafRef = useRef<number | null>(null);
+  const stopFollow = useCallback(() => {
+    if (followRafRef.current) {
+      cancelAnimationFrame(followRafRef.current);
+      followRafRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (onZoomToNodeRef) {
+      onZoomToNodeRef.current = (did) => {
+        const node = nodes.find((n) => n.id === did);
+        if (!node) return;
+
+        stopFollow();
+
+        let started = false;
+        let startZoom = 1;
+        let start = 0;
+        const zoomDuration = 3000;
+
+        const frame = () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cosmos = (cosmographRef.current as any)?._cosmos;
+          if (!cosmos) {
+            // Cosmos not ready yet — retry next frame
+            followRafRef.current = requestAnimationFrame(frame);
+            return;
+          }
+
+          if (!started) {
+            started = true;
+            startZoom = cosmos.getZoomLevel() ?? 1;
+            start = performance.now();
+
+            // Stop following on any user interaction
+            const stop = () => {
+              stopFollow();
+              window.removeEventListener("pointerdown", stop, true);
+              window.removeEventListener("wheel", stop, true);
+              window.removeEventListener("keydown", stop, true);
+              window.removeEventListener("touchstart", stop, true);
+            };
+            window.addEventListener("pointerdown", stop, {
+              once: true,
+              capture: true,
+            });
+            window.addEventListener("wheel", stop, {
+              once: true,
+              capture: true,
+            });
+            window.addEventListener("keydown", stop, {
+              once: true,
+              capture: true,
+            });
+            window.addEventListener("touchstart", stop, {
+              once: true,
+              capture: true,
+            });
+          }
+
+          const elapsed = performance.now() - start;
+          const t = Math.min(elapsed / zoomDuration, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          const zoom = startZoom + (ZOOM_TO_NODE_SCALE - startZoom) * eased;
+
+          cosmos.zoomToNode(node, 0, zoom, false);
+          followRafRef.current = requestAnimationFrame(frame);
+        };
+
+        followRafRef.current = requestAnimationFrame(frame);
+      };
+    }
+  }, [onZoomToNodeRef, nodes, stopFollow]);
 
   // Expose focus node to parent
   useEffect(() => {
@@ -170,7 +247,7 @@ function VouchGraphInner({
       showLabelsFor={showLabelsFor}
       renderHoveredNodeRing
       hoveredNodeRingColor="#ffffff"
-      fitViewOnInit
+      fitViewOnInit={!disableFitViewOnInit}
       fitViewDelay={FIT_VIEW_DURATION}
       simulationGravity={params.simulationGravity}
       simulationRepulsion={params.simulationRepulsion}
