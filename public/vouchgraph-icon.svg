@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <rect width="512" height="512" fill="#0f1729"/>
-  <line x1="86.0" y1="108.8" x2="256.0" y2="403.2" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="4.5"/>
-  <line x1="256.0" y1="403.2" x2="426.0" y2="108.8" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="4.5"/>
-  <g transform="translate(171.0, 256.0) rotate(60.0)">
-    <polygon points="11,0 -8.47,8.47 -8.47,-8.47" fill="#c4b5fd" fill-opacity="0.6"/>
+  <line x1="69.0" y1="69.0" x2="256.0" y2="443.0" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="11.25"/>
+  <line x1="256.0" y1="443.0" x2="443.0" y2="69.0" stroke="#c4b5fd" stroke-opacity="0.6" stroke-width="11.25"/>
+  <g transform="translate(162.5, 256.0) rotate(63.4)">
+    <polygon points="27.5,0 -21.175,21.175 -21.175,-21.175" fill="#c4b5fd" fill-opacity="0.6"/>
   </g>
-  <g transform="translate(341.0, 256.0) rotate(-60.0)">
-    <polygon points="11,0 -8.47,8.47 -8.47,-8.47" fill="#c4b5fd" fill-opacity="0.6"/>
+  <g transform="translate(349.5, 256.0) rotate(-63.4)">
+    <polygon points="27.5,0 -21.175,21.175 -21.175,-21.175" fill="#c4b5fd" fill-opacity="0.6"/>
   </g>
-  <circle cx="86.0" cy="108.8" r="26" fill="#c4b5fd"/>
-  <circle cx="426.0" cy="108.8" r="26" fill="#c4b5fd"/>
-  <circle cx="256.0" cy="403.2" r="26" fill="#c4b5fd"/>
+  <circle cx="69.0" cy="69.0" r="39" fill="#c4b5fd"/>
+  <circle cx="443.0" cy="69.0" r="39" fill="#c4b5fd"/>
+  <circle cx="256.0" cy="443.0" r="39" fill="#c4b5fd"/>
 </svg>

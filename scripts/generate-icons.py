@@ -20,14 +20,14 @@ from PIL import Image
 SIZE = 512
 BG = "#0f1729"
 FG = "#c4b5fd"
-NODE_RADIUS = 26
-EDGE_WIDTH = 4.5
+NODE_RADIUS = 39
+EDGE_WIDTH = 11.25
 EDGE_OPACITY = 0.6
-ARROW_SIZE = 11
+ARROW_SIZE = 27.5
 ARROW_BACK_SCALE = 0.77  # how far back the arrowhead wings extend (relative to ARROW_SIZE)
 ARROW_WING_ANGLE = 2.5   # wing angle in radians from the shaft
-PADDING = 60
-INNER_ANGLE_DEG = 60
+PADDING = 30
+INNER_ANGLE_DEG = math.degrees(2 * math.atan(0.5))  # ~53.13°, equalises side/top/bottom spacing
 ICO_SIZES = [16, 32, 48, 64, 128, 256]
 OUT_DIR = Path("public")
 
@@ -174,9 +174,15 @@ def main():
     png_path.write_bytes(png_data)
     print(f"wrote {png_path}")
 
+    # PNG (og-image-transparent, no background)
+    svg_transparent = generate_svg(bg=None, **params)
+    png_transparent_data = svg_to_png(svg_transparent, SIZE)
+    png_transparent_path = out / "og-image-transparent.png"
+    png_transparent_path.write_bytes(png_transparent_data)
+    print(f"wrote {png_transparent_path}")
+
     # ICO (multi-size, transparent background)
     ico_path = out / "favicon.ico"
-    svg_transparent = generate_svg(bg=None, **params)
     ico_images = []
     for s in ICO_SIZES:
         data = svg_to_png(svg_transparent, s)
