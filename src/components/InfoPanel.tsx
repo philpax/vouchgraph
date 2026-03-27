@@ -281,7 +281,7 @@ function InfoContent({
           {status.nodeCount > 0 && (
             <span className="text-white/50">
               {" "}
-              ({status.nodeCount} users, {status.edgeCount} vouches)
+              ({status.nodeCount} accounts, {status.edgeCount} vouches)
             </span>
           )}{" "}
           on{" "}
