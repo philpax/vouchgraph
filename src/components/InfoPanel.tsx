@@ -9,7 +9,7 @@ import { ProfileCard } from "./ProfileCard";
 import { UserList, type UserListItem } from "./UserList";
 import { VouchList } from "./VouchList";
 import { SearchBar } from "./SearchBar";
-import { LoginSection, PermissionNotice } from "./LoginSection";
+import { LoginSection } from "./LoginSection";
 import { VouchButton } from "./VouchButton";
 import { useVouchBadge } from "../hooks/useVouchBadge";
 import { PANEL_BG } from "./ui";
@@ -296,11 +296,9 @@ function InfoContent({
           .
         </div>
         {!auth.did && (
-          <div className="flex flex-col gap-0.5">
-            <div>
-              Log in with Bluesky to vouch for people directly from the graph.
-            </div>
-            <PermissionNotice />
+          <div>
+            Log in with your Atmosphere account to vouch for people directly
+            from the graph.
           </div>
         )}
         <LoginSection auth={auth} />
